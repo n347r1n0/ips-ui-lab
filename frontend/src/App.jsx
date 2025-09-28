@@ -1,15 +1,23 @@
 // frontend/src/App.jsx
 
 import React, { useState } from 'react';
+import { PageShell } from './ui/layout/PageShell';
+import { Section } from './ui/layout/Section';
+import { Toolbar } from './ui/layout/Toolbar';
+
 import { GlassPanel } from './ui/surfaces/GlassPanel';
-import { Button } from './ui/primitives/Button';
 import { Modal } from './ui/surfaces/Modal';
+
+import { Button } from './ui/primitives/Button';
 import { Input } from './ui/primitives/Input';
 import { Select } from './ui/primitives/Select';
+
 import { Spinner } from './ui/feedback/Spinner';
-import { FontsModal } from './ui/demos/FontsModal';
-import { useToast } from './ui/surfaces/Toast'; // Импортируем хук
 import { EmptyState } from './ui/feedback/EmptyState';
+import { ErrorState } from './ui/feedback/ErrorState';
+
+import { FontsModal } from './ui/demos/FontsModal';
+import { useToast } from './ui/surfaces/Toast';
 import { Inbox } from 'lucide-react';
 
 export default function App() {
@@ -18,7 +26,8 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', contactType: 'telegram', contact: '' });
   const [errors, setErrors] = useState({});
-  const toast = useToast(); // Активируем хук
+  const [items, setItems] = useState([]);
+  const toast = useToast();
 
   const onSave = (e) => {
     e.preventDefault();
@@ -27,7 +36,6 @@ export default function App() {
     if (!form.contact.trim()) next.contact = 'Укажите контакт';
     setErrors(next);
     if (Object.keys(next).length) {
-      // Показываем ошибку через тост
       toast.danger(Object.values(next)[0], { title: 'Ошибка валидации' });
       return;
     }
@@ -36,45 +44,94 @@ export default function App() {
     setTimeout(() => {
       setSaving(false);
       setOpen(false);
-      toast.success('Данные успешно сохранены!', { title: 'Успех' }); // Заменяем alert
+      toast.success('Данные успешно сохранены!', { title: 'Успех' });
     }, 1000);
   };
 
   return (
-    <div className="p-6">
-      <GlassPanel className="max-w-md">
-        {/* Применяем класс для бренд-шрифта */}
-        <h1 className="font-brand text-2xl font-bold text-[--fg-strong]">IPS UI Lab</h1>
-        <p className="text-[--fg] opacity-80 mt-1">
-          Токены подключены, стекло и кнопки работают.
-        </p>
+    <PageShell>
+      {/* Верхняя панель (можно прилипать sticky при желании) */}
+      <Section y="tight" className="pt-6">
+        <Toolbar className="justify-between">
+          <div className="font-brand text-[--fg-strong]">
+            IPS UI Lab
+          </div>
+          <div className="flex gap-2">
+            <Button variant="glass" onClick={() => setFontsOpen(true)}>Fonts modal</Button>
+            <Button onClick={() => setOpen(true)}>Open modal</Button>
+          </div>
+        </Toolbar>
+      </Section>
 
-        <div className="flex gap-2 mt-4">
-          <Button>Primary</Button>
-          <Button variant="glass">Cancel</Button>
-          <Button variant="neutral">Neutral</Button>
-          <Button onClick={() => setOpen(true)} className="ml-auto">
-            Open modal
-          </Button>
-          <Button variant="glass" onClick={() => setFontsOpen(true)}>Fonts modal</Button>
-        </div>
-      </GlassPanel>
+      {/* Панель №1 — базовые кнопки и вызовы модалок */}
+      <Section>
+        <GlassPanel className="mx-auto max-w-md p-6">
+          <h1 className="font-brand text-2xl font-bold text-[--fg-strong]">IPS UI Lab</h1>
+          <p className="text-[--fg] opacity-80 mt-1">
+            Токены подключены, стекло и кнопки работают.
+          </p>
 
-      <GlassPanel className="mt-6 p-6">
-        <EmptyState
-          icon={Inbox}
-          title="Пока здесь пусто"
-          subtitle="Загрузки ещё не было. Попробуй открыть модалку или посмотреть шрифты."
-          action={
-            <div className="flex gap-2 justify-center">
-              <Button variant="glass" onClick={() => setOpen(true)}>Добавить</Button>
-              <Button onClick={() => setFontsOpen(true)}>Открыть FontsModal</Button>
+          <div className="flex gap-2 mt-4">
+            <Button>Primary</Button>
+            <Button variant="glass">Cancel</Button>
+            <Button variant="neutral">Neutral</Button>
+            <Button onClick={() => setOpen(true)} className="ml-auto">
+              Open modal
+            </Button>
+            <Button variant="glass" onClick={() => setFontsOpen(true)}>Fonts modal</Button>
+          </div>
+        </GlassPanel>
+      </Section>
+
+      {/* Панель №2 — демо EmptyState со списком */}
+      <Section y="tight">
+        <GlassPanel className="mx-auto max-w-md p-6">
+          <div className="text-[--fg-strong] font-semibold mb-3">EmptyState demo</div>
+
+          {items.length === 0 ? (
+            <EmptyState
+              icon={Inbox}
+              title="Пока здесь пусто"
+              subtitle="Добавьте первый элемент или откройте модалки."
+              action={
+                <div className="flex gap-2 justify-center">
+                  <Button onClick={() => setItems(['Элемент 1'])}>Добавить</Button>
+                  <Button variant="glass" onClick={() => setOpen(true)}>Открыть форму</Button>
+                  <Button variant="glass" onClick={() => setFontsOpen(true)}>Открыть FontsModal</Button>
+                </div>
+              }
+            />
+          ) : (
+            <div className="space-y-2">
+              {items.map((it, i) => (
+                <div key={i} className="p-3 rounded-lg bg-white/5 border border-white/10">
+                  {it}
+                </div>
+              ))}
+              <div className="flex gap-2 pt-2">
+                <Button variant="glass" onClick={() => setItems([])}>Очистить</Button>
+                <Button onClick={() => setItems(prev => [...prev, `Элемент ${prev.length + 1}`])}>
+                  Добавить
+                </Button>
+              </div>
             </div>
-          }
-        />
-      </GlassPanel>
+          )}
+        </GlassPanel>
+      </Section>
 
-      <Modal open={open} onClose={() => setOpen(false)}>
+      {/* Панель №3 — ErrorState демо */}
+      <Section y="tight">
+        <GlassPanel className="mx-auto max-w-md p-6">
+          <ErrorState
+            title="Не удалось загрузить список"
+            message="Проверь соединение и попробуйте снова."
+            onRetry={() => toast.info('Повтор запроса...')}
+          />
+        </GlassPanel>
+      </Section>
+
+      {/* Основная модалка с формой */}
+      <Modal open={open} onClose={() => setOpen(false)} size="md">
         <Modal.Header onClose={() => setOpen(false)}>
           <span className="font-brand">Демо-модалка</span>
         </Modal.Header>
@@ -89,13 +146,12 @@ export default function App() {
               error={errors.name}
               variant="glass"
             />
+
             <Select
               id="ctype"
               label="Тип контакта"
               value={form.contactType}
-              onChange={(e) =>
-                setForm((s) => ({ ...s, contactType: e.target.value }))
-              }
+              onChange={(e) => setForm((s) => ({ ...s, contactType: e.target.value }))}
               hint="Telegram предпочтительно"
               variant="glass"
             >
@@ -103,14 +159,13 @@ export default function App() {
               <option value="phone">Телефон</option>
               <option value="email">Email</option>
             </Select>
+
             <Input
               id="contact"
               label="Контакт"
               placeholder="@username или +7…"
               value={form.contact}
-              onChange={(e) =>
-                setForm((s) => ({ ...s, contact: e.target.value }))
-              }
+              onChange={(e) => setForm((s) => ({ ...s, contact: e.target.value }))}
               error={errors.contact}
               variant="glass"
             />
@@ -125,7 +180,9 @@ export default function App() {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Модалка предпросмотра ролей шрифтов */}
       <FontsModal open={fontsOpen} onClose={() => setFontsOpen(false)} />
-    </div>
+    </PageShell>
   );
 }
