@@ -1,9 +1,12 @@
+// frontend/src/ui/layout/Toolbar.jsx
+
+
 import React from 'react';
 import { twMerge } from 'tailwind-merge';
 
 /**
- * Верхняя панель/таскбар внутри секции/панели.
- * sticky: делает панель липкой (sticky top-0).
+ * Верхняя панель/таскбар. Можно сделать «липкой».
+ * sticky: boolean — добавляет sticky top-0.
  */
 export function Toolbar({
   className = '',
@@ -16,6 +19,7 @@ export function Toolbar({
     'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] ' +
     'px-3 sm:px-4 flex items-center gap-3';
   const stick = sticky ? 'sticky top-0 z-50' : '';
+
   return (
     <div className={twMerge(base, stick, className)} {...rest}>
       {children}

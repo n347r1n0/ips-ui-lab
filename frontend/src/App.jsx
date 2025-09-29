@@ -18,6 +18,7 @@ import { ErrorState } from './ui/feedback/ErrorState';
 
 import { FontsModal } from './ui/demos/FontsModal';
 import { useToast } from './ui/surfaces/Toast';
+
 import { Inbox } from 'lucide-react';
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
   const [form, setForm] = useState({ name: '', contactType: 'telegram', contact: '' });
   const [errors, setErrors] = useState({});
   const [items, setItems] = useState([]);
+
   const toast = useToast();
 
   const onSave = (e) => {
@@ -49,26 +51,13 @@ export default function App() {
   };
 
   return (
-    <PageShell>
-      {/* Верхняя панель (можно прилипать sticky при желании) */}
-      <Section y="tight" className="pt-6">
-        <Toolbar className="justify-between">
-          <div className="font-brand text-[--fg-strong]">
-            IPS UI Lab
-          </div>
-          <div className="flex gap-2">
-            <Button variant="glass" onClick={() => setFontsOpen(true)}>Fonts modal</Button>
-            <Button onClick={() => setOpen(true)}>Open modal</Button>
-          </div>
-        </Toolbar>
-      </Section>
-
-      {/* Панель №1 — базовые кнопки и вызовы модалок */}
-      <Section>
-        <GlassPanel className="mx-auto max-w-md p-6">
+    <PageShell maxW="token" padded>
+      {/* Секция 1: базовые панели/кнопки/модалки */}
+      <Section y="default">
+        <GlassPanel className="max-w-md p-6">
           <h1 className="font-brand text-2xl font-bold text-[--fg-strong]">IPS UI Lab</h1>
           <p className="text-[--fg] opacity-80 mt-1">
-            Токены подключены, стекло и кнопки работают.
+            Токены, стекло, кнопки, модалки — в песочнице.
           </p>
 
           <div className="flex gap-2 mt-4">
@@ -78,16 +67,14 @@ export default function App() {
             <Button onClick={() => setOpen(true)} className="ml-auto">
               Open modal
             </Button>
-            <Button variant="glass" onClick={() => setFontsOpen(true)}>Fonts modal</Button>
+            <Button variant="glass" onClick={() => setFontsOpen(true)}>
+              Fonts modal
+            </Button>
           </div>
         </GlassPanel>
-      </Section>
 
-      {/* Панель №2 — демо EmptyState со списком */}
-      <Section y="tight">
-        <GlassPanel className="mx-auto max-w-md p-6">
+        <GlassPanel className="max-w-md p-6 mt-6">
           <div className="text-[--fg-strong] font-semibold mb-3">EmptyState demo</div>
-
           {items.length === 0 ? (
             <EmptyState
               icon={Inbox}
@@ -117,11 +104,8 @@ export default function App() {
             </div>
           )}
         </GlassPanel>
-      </Section>
 
-      {/* Панель №3 — ErrorState демо */}
-      <Section y="tight">
-        <GlassPanel className="mx-auto max-w-md p-6">
+        <GlassPanel className="mt-6 p-6">
           <ErrorState
             title="Не удалось загрузить список"
             message="Проверь соединение и попробуйте снова."
@@ -130,7 +114,30 @@ export default function App() {
         </GlassPanel>
       </Section>
 
-      {/* Основная модалка с формой */}
+      {/* Секция 2: демонстрация Toolbar и широкой панели */}
+      <Section y="default">
+        <Toolbar sticky className="mb-4">
+          <div className="flex items-center gap-2">
+            <span className="font-ui text-sm opacity-80">Демо Toolbar</span>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="glass" onClick={() => toast.info('Action')}>
+              Action
+            </Button>
+            <Button onClick={() => setOpen(true)}>Open modal</Button>
+          </div>
+        </Toolbar>
+
+        <GlassPanel className="p-6">
+          <div className="text-[--fg-strong] font-semibold mb-2">Широкая панель</div>
+          <p className="opacity-80">
+            Эта панель тянется по ширине контейнера <code>PageShell</code> (max-w по токену).
+            В PROD такие блоки часто содержат гриды/таблицы.
+          </p>
+        </GlassPanel>
+      </Section>
+
+      {/* Модалка с формой */}
       <Modal open={open} onClose={() => setOpen(false)} size="md">
         <Modal.Header onClose={() => setOpen(false)}>
           <span className="font-brand">Демо-модалка</span>

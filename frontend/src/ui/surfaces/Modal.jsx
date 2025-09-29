@@ -1,15 +1,26 @@
+// frontend/src/ui/surfaces/Modal.jsx
+
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { twMerge } from 'tailwind-merge';
 
 /**
+ * Унифицированная модалка.
  * size: 'md' | 'lg' | 'xl' | 'fullscreen'
- * - md -> max-w-md (форма/подтверждение)
- * - lg -> max-w-lg (средняя)
- * - xl -> max-w-4xl (большая, как в PROD)
- * - fullscreen -> во весь экран
+ *   md → max-w-md   (формы/подтверждения)
+ *   lg → max-w-lg
+ *   xl → max-w-4xl  (крупные, как в PROD)
+ *   fullscreen → занимает весь экран, без скругления
  */
-export function Modal({ open, onClose, size = 'md', children, ...rest }) {
+export function Modal({
+  open,
+  onClose,
+  size = 'md',
+  children,
+  className = '',
+  ...rest
+}) {
   const contentRef = useRef(null);
 
   useEffect(() => {
@@ -28,13 +39,10 @@ export function Modal({ open, onClose, size = 'md', children, ...rest }) {
   if (typeof document === 'undefined') return null;
 
   const maxW =
-    size === 'fullscreen'
-      ? 'max-w-none'
-      : size === 'xl'
-      ? 'max-w-4xl'
-      : size === 'lg'
-      ? 'max-w-lg'
-      : 'max-w-md';
+    size === 'fullscreen' ? 'max-w-none'
+    : size === 'xl'        ? 'max-w-4xl'
+    : size === 'lg'        ? 'max-w-lg'
+    :                        'max-w-md';
 
   const wrapperSizing =
     size === 'fullscreen'
@@ -66,19 +74,22 @@ export function Modal({ open, onClose, size = 'md', children, ...rest }) {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: size === 'fullscreen' ? 1 : 0.96, y: size === 'fullscreen' ? 0 : 12, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-              className={tw(
+              className={twMerge(
                 'w-full outline-none',
-                size === 'fullscreen' ? 'h-full' : maxW
+                size === 'fullscreen' ? 'h-full' : maxW,
+                className
               )}
               onClick={(e) => e.stopPropagation()}
               tabIndex={-1}
               ref={contentRef}
             >
-              <div className={tw(
-                'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] ' +
-                'rounded-[var(--radius)] shadow-[var(--shadow-m)]',
-                size === 'fullscreen' ? 'h-full rounded-none' : ''
-              )}>
+              <div
+                className={twMerge(
+                  'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] ' +
+                  'shadow-[var(--shadow-m)]',
+                  size === 'fullscreen' ? 'h-full rounded-none' : 'rounded-[var(--radius)]'
+                )}
+              >
                 {children}
               </div>
             </motion.div>
@@ -90,11 +101,11 @@ export function Modal({ open, onClose, size = 'md', children, ...rest }) {
   );
 }
 
-// Примитивные подкомпоненты
+/** Подкомпоненты с едиными отступами и границами */
 Modal.Header = function ModalHeader({ children, onClose }) {
   return (
-    <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b border-[--glass-border]">
-      <h3 className="text-lg font-semibold text-[--fg-strong]">{children}</h3>
+    <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 md:px-8 md:py-6 border-b border-[--glass-border]">
+      <h3 className="text-lg md:text-xl font-semibold text-[--fg-strong]">{children}</h3>
       {onClose && (
         <button
           onClick={onClose}
@@ -108,19 +119,18 @@ Modal.Header = function ModalHeader({ children, onClose }) {
   );
 };
 
-Modal.Body = function ModalBody({ children }) {
-  return <div className="p-5 text-[--fg]">{children}</div>;
-};
-
-Modal.Footer = function ModalFooter({ children }) {
+Modal.Body = function ModalBody({ children, className = '' }) {
   return (
-    <div className="sticky bottom-0 flex items-center justify-end gap-3 px-5 py-4 border-t border-[--glass-border]">
+    <div className={twMerge('px-6 py-5 md:px-8 md:py-6 text-[--fg]', className)}>
       {children}
     </div>
   );
 };
 
-// ——— helpers ———
-function tw(...classes) {
-  return classes.filter(Boolean).join(' ');
-}
+Modal.Footer = function ModalFooter({ children, className = '' }) {
+  return (
+    <div className={twMerge('sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 md:px-8 md:py-5 border-t border-[--glass-border]', className)}>
+      {children}
+    </div>
+  );
+};
