@@ -47,7 +47,12 @@ export function ToastProvider({ children }) {
     <ToastCtx.Provider value={api}>
       {children}
       {createPortal(
-        <div className="fixed z-[60] top-4 right-4 space-y-2 pointer-events-none">
+        <div
+          className="fixed z-[60] top-4 right-4 space-y-2 pointer-events-none">
+            role="region"
+            aria-live="polite"
+            aria-label="Notifications"
+          >
           <AnimatePresence initial={false}>
             {items.map(t => (
               <motion.div

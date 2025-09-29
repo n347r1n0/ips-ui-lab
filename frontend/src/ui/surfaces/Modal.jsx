@@ -59,6 +59,7 @@ export function Modal({
           exit={{ opacity: 0 }}
           role="dialog"
           aria-modal="true"
+          aria-labelledby={rest['aria-labelledby']}
           {...rest}
         >
           {/* подложка */}

@@ -104,10 +104,12 @@ export function Drawer({
                 // стекло + границы, как у Modal
                 'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)]',
                 'border border-[--glass-border] shadow-[var(--shadow-m)]',
-                'rounded-t-[var(--radius)]',
-                side === 'right' || side === 'left'
-                  ? 'rounded-l-[var(--radius)] rounded-r-none'
-                  : 'rounded-b-none',
+
+                side === 'bottom'
+                  ? 'rounded-t-[var(--radius)] rounded-b-none'
+                  : side === 'right'
+                    ? 'rounded-l-[var(--radius)] rounded-r-none'
+                    : 'rounded-r-[var(--radius)] rounded-l-none',
                 sizes[size],
               ].join(' ')}
             >

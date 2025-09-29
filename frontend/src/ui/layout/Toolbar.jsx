@@ -1,6 +1,5 @@
 // frontend/src/ui/layout/Toolbar.jsx
 
-
 import React from 'react';
 import { twMerge } from 'tailwind-merge';
 
@@ -18,10 +17,15 @@ export function Toolbar({
     'h-[var(--toolbar-h)] rounded-[calc(var(--radius)*0.75)] ' +
     'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] ' +
     'px-3 sm:px-4 flex items-center gap-3';
+
   const stick = sticky ? 'sticky top-0 z-50' : '';
 
   return (
-    <div className={twMerge(base, stick, className)} {...rest}>
+    <div
+      role="toolbar"
+      className={twMerge(base, stick, className)}
+      {...rest}
+    >
       {children}
     </div>
   );

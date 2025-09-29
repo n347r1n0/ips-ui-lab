@@ -1,6 +1,6 @@
-// src/ui/primitives/Input.jsx
+// frontend/src/ui/primitives/Input.jsx
 
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useId } from 'react';
 import { twMerge } from 'tailwind-merge';
 
 export const Input = forwardRef(function Input(
@@ -12,17 +12,24 @@ export const Input = forwardRef(function Input(
     className,
     variant = 'solid', // 'solid' | 'glass'
     size = 'md',       // 'sm' | 'md' | 'lg'
+    disabled = false,
+    required = false,
     ...props
   },
   ref
 ) {
-  const sizes = {
+  const reactId = useId();
+  const inputId = id || `inp-${reactId}`;
+  const hintId = hint ? `${inputId}-hint` : undefined;
+  const errorId = error ? `${inputId}-error` : undefined;
+
+  const sizeCls = {
     sm: 'h-9 text-sm',
     md: 'h-10',
     lg: 'h-12 text-base',
   }[size];
 
-  const variants = {
+  const variantCls = {
     solid:
       'bg-[--bg-1] border border-[--glass-border] focus:[box-shadow:var(--ring)]',
     glass:
@@ -34,32 +41,46 @@ export const Input = forwardRef(function Input(
       ? 'border-[--danger]/70 focus:[box-shadow:0_0_0_2px_var(--danger)]'
       : '';
 
+  const disabledCls = disabled ? 'opacity-60 cursor-not-allowed' : '';
+
   const inputClasses = twMerge(
     'block w-full px-3 rounded-[var(--radius)] text-[--fg] placeholder:text-[--fg-dim] outline-none transition',
-    sizes,
-    variants,
+    sizeCls,
+    variantCls,
     invalid,
+    disabledCls,
     className
   );
+
+  const describedBy = [errorId, hintId].filter(Boolean).join(' ') || undefined;
 
   return (
     <div className="space-y-1">
       {label && (
         <label
-          htmlFor={id}
+          htmlFor={inputId}
           className="text-sm text-[--fg] opacity-90 select-none"
         >
-          {label}
+          {label}{required ? ' *' : ''}
         </label>
       )}
 
-      <input id={id} ref={ref} className={inputClasses} {...props} />
+      <input
+        id={inputId}
+        ref={ref}
+        className={inputClasses}
+        aria-invalid={!!error || undefined}
+        aria-describedby={describedBy}
+        disabled={disabled}
+        required={required}
+        {...props}
+      />
 
       {hint && !error && (
-        <div className="text-xs text-[--fg] opacity-60">{hint}</div>
+        <div id={hintId} className="text-xs text-[--fg] opacity-60">{hint}</div>
       )}
       {error && (
-        <div className="text-xs" style={{ color: 'var(--danger)' }}>
+        <div id={errorId} className="text-xs" style={{ color: 'var(--danger)' }}>
           {error}
         </div>
       )}

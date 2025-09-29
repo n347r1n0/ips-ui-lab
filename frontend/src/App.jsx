@@ -249,9 +249,10 @@ export default function App() {
       {/* ──────────────────────────────────────────────────────────────
           МОДАЛКА (форма)
       ─────────────────────────────────────────────────────────────── */}
-      <Modal open={open} onClose={() => setOpen(false)} size="md">
+
+      <Modal open={open} onClose={() => setOpen(false)} size="md" aria-labelledby="demo-modal-title">
         <Modal.Header onClose={() => setOpen(false)}>
-          <span className="font-brand">Демо-модалка</span>
+          <span id="demo-modal-title" className="font-brand">Демо-модалка</span>
         </Modal.Header>
 
         <Modal.Body>

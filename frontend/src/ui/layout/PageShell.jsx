@@ -6,7 +6,7 @@ import { twMerge } from 'tailwind-merge';
 /**
  * Центрирующая «материнская» обёртка страницы/контента.
  * maxW: 'token' | '7xl' | '6xl' | '5xl' | 'full'
- * padded: добавляет горизонтальные поля (gutters).
+ * padded: добавляет горизонтальные поля (gutters) из --page-gutter.
  */
 export function PageShell({
   as: Tag = 'div',
@@ -23,7 +23,8 @@ export function PageShell({
     : maxW === '5xl'  ? 'max-w-5xl'
     : 'max-w-full';
 
-  const gutters = padded ? 'px-4 sm:px-6' : '';
+  // Гаттеры управляются токеном --page-gutter
+  const gutters = padded ? 'px-[var(--page-gutter)]' : '';
 
   return (
     <Tag

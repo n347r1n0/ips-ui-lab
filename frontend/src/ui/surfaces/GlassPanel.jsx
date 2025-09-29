@@ -5,7 +5,7 @@ import { twMerge } from 'tailwind-merge';
 
 export function GlassPanel({ className = '', ...props }) {
   const base =
-    'rounded-2xl border border-[--glass-border] bg-[--glass-bg] ' +
+    'rounded-[var(--radius)] border border-[--glass-border] bg-[--glass-bg] ' +
     'backdrop-blur-[var(--glass-blur)]';
   return <div className={twMerge(base, className)} {...props} />;
 }
