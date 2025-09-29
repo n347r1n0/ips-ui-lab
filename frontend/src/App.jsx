@@ -2,6 +2,11 @@
 
 import React, { useState } from 'react';
 
+import { tournaments } from '@/demo/tournaments/fixtures';
+import { UpcomingTournamentsModal } from '@/demo/tournaments/UpcomingTournamentsModal';
+import { TournamentListForDay } from '@/demo/tournaments/TournamentListForDay';
+
+
 // — Layout (обёртки страницы/секций/тулбара)
 import { PageShell } from './ui/layout/PageShell';
 import { Section } from './ui/layout/Section';
@@ -30,12 +35,19 @@ import { LoadingOverlay } from './ui/feedback/LoadingOverlay';
 import { FontsModal } from './ui/demos/FontsModal';
 import { Inbox } from 'lucide-react';
 
+import { BaseLayout } from '@/app/layout/BaseLayout';
+import { Home } from '@/app/pages/Home';
+
 export default function App() {
   // — UI state
   const [open, setOpen] = useState(false);                 // модалка формы
   const [fontsOpen, setFontsOpen] = useState(false);       // модалка шрифтов
   const [drawerOpen, setDrawerOpen] = useState(false);     // выезжающий Drawer
   const [loadingWide, setLoadingWide] = useState(false);   // overlay на широкой панели
+  const [tournamentsOpen, setTournamentsOpen] = useState(false);
+  const openTournaments = () => setTournamentsOpen(true);
+  const closeTournaments = () => setTournamentsOpen(false);
+  const [dayOpen, setDayOpen] = useState(false);           // <-- добавили: модалка «за день»
 
   // — Form state
   const [saving, setSaving] = useState(false);             // overlay в модалке при сохранении
@@ -82,9 +94,25 @@ export default function App() {
     }, 1000);
   };
 
+  // ── Данные «турниры за день»: берём дату первого и фильтруем все в тот же день
+  const firstDate = tournaments[0] ? new Date(tournaments[0].date) : null;
+  const dayItems = firstDate
+    ? tournaments.filter(t => {
+        const d = new Date(t.date);
+        return (
+          d.getFullYear() === firstDate.getFullYear() &&
+          d.getMonth() === firstDate.getMonth() &&
+          d.getDate() === firstDate.getDate()
+        );
+      })
+    : [];
+
+
   return (
     // — Корневая «материнская» обёртка страницы (центровка, max-width из токена)
-    <PageShell maxW="token" padded>
+    <BaseLayout onOpenTournaments={openTournaments}>              {/* NEW wrapper (header+footer) */}
+      <Home onOpenTournaments={openTournaments} />                {/* NEW hero/секции как в PROD */}
+      <PageShell maxW="token" padded>
 
       {/* ──────────────────────────────────────────────────────────────
           СЕКЦИЯ 1: Базовые панели/кнопки/модалки + демо EmptyState/Card
@@ -102,6 +130,9 @@ export default function App() {
             <Button>Primary</Button>
             <Button variant="glass">Cancel</Button>
             <Button variant="neutral">Neutral</Button>
+            {/* — ДЕМО турниров из фикстур */}
+            <Button onClick={() => setTournamentsOpen(true)}>Турниры (demo)</Button>
+            <Button variant="glass" onClick={() => setDayOpen(true)}>Турниры за день (demo)</Button> {/* <-- добавили кнопку */}
 
             {/* — Открыть форму в модалке */}
             <Button onClick={() => setOpen(true)} className="ml-auto">
@@ -324,6 +355,25 @@ export default function App() {
           МОДАЛКА: предпросмотр ролей шрифтов
       ─────────────────────────────────────────────────────────────── */}
       <FontsModal open={fontsOpen} onClose={() => setFontsOpen(false)} />
+
+      {/* ──────────────────────────────────────────────────────────────
+           МОДАЛКИ: турниры
+      ─────────────────────────────────────────────────────────────── */}
+      {tournamentsOpen && (
+        <UpcomingTournamentsModal
+          items={tournaments}   // фикстуры
+          onClose={closeTournaments}
+        />
+      )}
+
+      {dayOpen && (
+        <TournamentListForDay
+          items={dayItems}          // на случай, если компонент ждёт items
+          tournaments={dayItems}    // на случай, если ждёт tournaments
+          onClose={() => setDayOpen(false)}
+        />
+      )}
     </PageShell>
+    </BaseLayout>
   );
 }

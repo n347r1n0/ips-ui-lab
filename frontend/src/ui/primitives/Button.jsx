@@ -1,75 +1,86 @@
 // frontend/src/ui/primitives/Button.jsx
-
 import React from 'react';
 import { twMerge } from 'tailwind-merge';
 import { Spinner } from '../feedback/Spinner';
 
-const sizes = {
-  sm: 'h-9 px-3 rounded-lg text-sm',
-  md: 'h-10 px-4 rounded-xl',
-  lg: 'h-12 px-6 rounded-2xl text-lg',
+/**
+ * Button — унифицированная кнопка.
+ *
+ * props:
+ * - variant: 'primary' | 'secondary' | 'glass' | 'ghost' | 'danger' | 'clay'
+ * - size: 'sm' | 'md' | 'lg'
+ * - loading: boolean — показывает спиннер и дизейблит кнопку
+ * - block: boolean — занимает всю ширину
+ * - leftIcon / rightIcon: ReactNode — иконки по краям
+ */
+const SIZE = {
+  sm: 'h-9 px-3 rounded-lg text-sm gap-2',
+  md: 'h-10 px-4 rounded-xl gap-2.5',
+  lg: 'h-12 px-6 rounded-2xl text-lg gap-3',
 };
 
-const variants = {
+const VARIANT = {
   primary:
-    'bg-[--brand-crimson] text-[--fg-strong] hover:bg-[--brand-crimson-600] active:bg-[--brand-crimson-700] ' +
+    'bg-[--brand-crimson] text-[--fg-strong] ' +
+    'hover:bg-[--brand-crimson-600] active:bg-[--brand-crimson-700] ' +
     'shadow-[var(--shadow-s)] focus:[box-shadow:var(--ring-brand)]',
+  secondary:
+    'bg-[--bg-2] text-[--fg] border border-[--glass-border] ' +
+    'hover:bg-white/10 focus:[box-shadow:var(--ring)]',
   glass:
-    'bg-[--glass-bg] border border-[--glass-border] text-[--fg] ' +
+    'bg-[--glass-bg] text-[--fg] border border-[--glass-border] ' +
     'backdrop-blur-[var(--glass-blur)] hover:bg-white/10 focus:[box-shadow:var(--ring)]',
-  neutral:
-    'bg-white/10 text-[--fg] hover:bg-white/15 focus:[box-shadow:var(--ring)]',
-  danger:
-    'bg-[--danger] text-white hover:brightness-110 focus:[box-shadow:0_0_0_2px_rgba(239,68,68,0.6)]',
   ghost:
-    'bg-transparent text-[--fg] hover:bg-white/5 focus:[box-shadow:var(--ring)]',
+    'text-[--fg] hover:bg-white/5 focus:[box-shadow:var(--ring)]',
+  danger:
+    'bg-[--danger] text-white hover:brightness-110 ' +
+    'focus:[box-shadow:0_0_0_2px_color-mix(in_oklab,var(--danger),white_25%)]',
+  clay:
+    'text-[--fg-strong] bg-[--clay-bg] shadow-[var(--clay-shadow)] ' +
+    '[box-shadow:var(--clay-inset),var(--clay-shadow)] ' +
+    'hover:[filter:brightness(1.03)] active:translate-y-[1px]',
 };
 
 export function Button({
   variant = 'primary',
   size = 'md',
-  className = '',
-  children,
   loading = false,
-  block = false,
   disabled,
-  type = 'button',
+  block = false,
   leftIcon,
   rightIcon,
+  className = '',
+  children,
   ...props
 }) {
   const isDisabled = disabled || loading;
 
   const base =
-    'inline-flex items-center justify-center font-medium transition-colors select-none ' +
-    'outline-none focus-visible:[box-shadow:var(--ring)]';
-
-  const width = block ? 'w-full' : '';
-
-  const state =
-    isDisabled
-      ? 'opacity-60 pointer-events-none cursor-not-allowed'
-      : '';
+    'inline-flex items-center justify-center font-medium select-none ' +
+    'transition-colors outline-none';
 
   return (
     <button
-      type={type}
-      aria-busy={loading ? 'true' : undefined}
+      className={twMerge(
+        base,
+        SIZE[size],
+        VARIANT[variant],
+        block ? 'w-full' : '',
+        isDisabled ? 'opacity-70 cursor-not-allowed' : '',
+        className
+      )}
       disabled={isDisabled}
-      className={twMerge(base, sizes[size], variants[variant], width, state, className)}
+      aria-busy={loading || undefined}
       {...props}
     >
-      {/* left icon / spinner */}
-      {loading ? (
-        <Spinner className="mr-2" />
-      ) : (
-        leftIcon ? <span className="mr-2 inline-flex">{leftIcon}</span> : null
+      {leftIcon ? <span className="-ml-0.5 flex items-center">{leftIcon}</span> : null}
+      {loading && (
+        <span className="mr-2">
+          <Spinner className="!mr-0" />
+        </span>
       )}
-
-      {children}
-
-      {/* right icon */}
-      {rightIcon ? <span className="ml-2 inline-flex">{rightIcon}</span> : null}
+      <span>{children}</span>
+      {rightIcon ? <span className="-mr-0.5 flex items-center">{rightIcon}</span> : null}
     </button>
   );
 }

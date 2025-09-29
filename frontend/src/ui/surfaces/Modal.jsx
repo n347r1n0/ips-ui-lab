@@ -86,11 +86,13 @@ export function Modal({
             >
               <div
                 className={twMerge(
-                  'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] ' +
-                  'shadow-[var(--shadow-m)]',
-                  size === 'fullscreen' ? 'h-full rounded-none' : 'rounded-[var(--radius)]'
+                  'flex flex-col bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] shadow-[var(--shadow-m)]',
+                  size === 'fullscreen'
+                    ? 'h-full rounded-none'
+                    : 'rounded-[var(--radius)] max-h-[90vh]'
                 )}
               >
+
                 {children}
               </div>
             </motion.div>
@@ -122,7 +124,12 @@ Modal.Header = function ModalHeader({ children, onClose }) {
 
 Modal.Body = function ModalBody({ children, className = '' }) {
   return (
-    <div className={twMerge('px-6 py-5 md:px-8 md:py-6 text-[--fg]', className)}>
+    <div
+      className={twMerge(
+        'flex-1 overflow-y-auto min-h-0 [scrollbar-gutter:stable_both-edges] px-6 py-5 md:px-8 md:py-6 text-[--fg]',
+        className
+      )}
+    >
       {children}
     </div>
   );
