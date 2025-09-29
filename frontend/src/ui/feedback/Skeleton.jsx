@@ -2,6 +2,10 @@
 import React from 'react';
 import { twMerge } from 'tailwind-merge';
 
+/**
+ * Простой скелетон-блок.
+ * Пример: <Skeleton className="h-6 w-40" />
+ */
 export function Skeleton({ className = '' }) {
   return (
     <div
@@ -13,17 +17,15 @@ export function Skeleton({ className = '' }) {
   );
 }
 
-export function SkeletonText({ lines = 3, className = '' }) {
+/**
+ * Набор строк как «карточка-скелетон».
+ * Пример: <SkeletonLines lines={3} />
+ */
+export function SkeletonLines({ lines = 3, gap = '0.5rem' }) {
   return (
-    <div className={twMerge('space-y-2', className)}>
+    <div style={{ display: 'grid', gap }}>
       {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton
-          key={i}
-          className={twMerge(
-            'h-4',
-            i === lines - 1 ? 'w-2/3' : 'w-full'
-          )}
-        />
+        <Skeleton key={i} className="h-4 w-full" />
       ))}
     </div>
   );

@@ -23,6 +23,8 @@ import { Spinner } from './ui/feedback/Spinner';
 import { EmptyState } from './ui/feedback/EmptyState';
 import { ErrorState } from './ui/feedback/ErrorState';
 import { useToast } from './ui/surfaces/Toast';
+import { Skeleton, SkeletonLines } from './ui/feedback/Skeleton';
+import { LoadingOverlay } from './ui/feedback/LoadingOverlay';
 
 // — Demos / прочее
 import { FontsModal } from './ui/demos/FontsModal';
@@ -33,14 +35,25 @@ export default function App() {
   const [open, setOpen] = useState(false);                 // модалка формы
   const [fontsOpen, setFontsOpen] = useState(false);       // модалка шрифтов
   const [drawerOpen, setDrawerOpen] = useState(false);     // выезжающий Drawer
+  const [loadingWide, setLoadingWide] = useState(false);   // overlay на широкой панели
 
   // — Form state
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false);             // overlay в модалке при сохранении
   const [form, setForm] = useState({ name: '', contactType: 'telegram', contact: '' });
   const [errors, setErrors] = useState({});
 
   // — Demo data (для EmptyState)
   const [items, setItems] = useState([]);
+
+  // — Имитация загрузки списка (overlay поверх панели со списком)
+  const [listLoading, setListLoading] = useState(false);
+  const loadItems = () => {
+    setListLoading(true);
+    setTimeout(() => {
+      setItems(['Элемент 1', 'Элемент 2', 'Элемент 3']);
+      setListLoading(false);
+    }, 1200);
+  };
 
   // — Toast API
   const toast = useToast();
@@ -49,6 +62,7 @@ export default function App() {
   const onSave = (e) => {
     e.preventDefault();
 
+    // простая валидация
     const next = {};
     if (!form.name.trim()) next.name = 'Введите имя';
     if (!form.contact.trim()) next.contact = 'Укажите контакт';
@@ -59,6 +73,7 @@ export default function App() {
       return;
     }
 
+    // имитация сохранения
     setSaving(true);
     setTimeout(() => {
       setSaving(false);
@@ -105,8 +120,11 @@ export default function App() {
           </div>
         </GlassPanel>
 
-        {/* — Демо EmptyState / список «items» */}
-        <GlassPanel className="max-w-md p-6 mt-6">
+        {/* — Демо EmptyState / список «items» + overlay загрузки */}
+        <GlassPanel className="relative max-w-md p-6 mt-6">
+          {/* — Полупрозрачная вуаль поверх панели при загрузке списка */}
+          <LoadingOverlay show={listLoading} />
+
           <div className="text-[--fg-strong] font-semibold mb-3">EmptyState demo</div>
 
           {items.length === 0 ? (
@@ -120,6 +138,7 @@ export default function App() {
                   <Button onClick={() => setItems(['Элемент 1'])}>Добавить</Button>
                   <Button variant="glass" onClick={() => setOpen(true)}>Открыть форму</Button>
                   <Button variant="glass" onClick={() => setFontsOpen(true)}>Открыть FontsModal</Button>
+                  <Button variant="glass" onClick={loadItems}>Загрузить список</Button>
                 </div>
               }
             />
@@ -137,6 +156,7 @@ export default function App() {
                 <Button onClick={() => setItems(prev => [...prev, `Элемент ${prev.length + 1}`])}>
                   Добавить
                 </Button>
+                <Button variant="glass" onClick={loadItems}>Перезагрузить</Button>
               </div>
             </div>
           )}
@@ -195,18 +215,34 @@ export default function App() {
 
           {/* — Правая зона тулбара */}
           <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant="glass"
+              onClick={() => setLoadingWide((v) => !v)}
+              title="Переключить overlay у широкой панели"
+            >
+              {loadingWide ? 'Stop loading' : 'Simulate loading'}
+            </Button>
             <Button variant="glass" onClick={() => toast.info('Action')}>Action</Button>
             <Button onClick={() => setOpen(true)}>Open modal</Button>
           </div>
         </Toolbar>
 
         {/* — Широкая «поверхность» (обычно: таблицы/гриды) */}
-        <GlassPanel className="p-6">
+        <GlassPanel className="relative p-6">
           <div className="text-[--fg-strong] font-semibold mb-2">Широкая панель</div>
           <p className="opacity-80">
             Эта панель тянется по ширине контейнера <code>PageShell</code> (max-w по токену).
             В PROD такие блоки часто содержат гриды/таблицы.
           </p>
+
+          {/* — Скелетоны как пример «контента в загрузке» */}
+          <div className="mt-4 grid gap-3">
+            <Skeleton className="h-6 w-1/3" />
+            <SkeletonLines lines={3} />
+          </div>
+
+          {/* — Полупрозрачная вуаль поверх панели */}
+          <LoadingOverlay show={loadingWide} />
         </GlassPanel>
       </Section>
 
@@ -219,41 +255,46 @@ export default function App() {
         </Modal.Header>
 
         <Modal.Body>
-          {/* — Форма внутри модалки */}
-          <form className="space-y-4" onSubmit={onSave} noValidate>
-            <Input
-              id="name"
-              label="Имя"
-              placeholder="Иван"
-              value={form.name}
-              onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
-              error={errors.name}
-              variant="glass"
-            />
+          {/* — Контейнер relative, чтобы накрыть форму overlay во время сохранения */}
+          <div className="relative">
+            <LoadingOverlay show={saving} />
 
-            <Select
-              id="ctype"
-              label="Тип контакта"
-              value={form.contactType}
-              onChange={(e) => setForm((s) => ({ ...s, contactType: e.target.value }))}
-              hint="Telegram предпочтительно"
-              variant="glass"
-            >
-              <option value="telegram">Telegram</option>
-              <option value="phone">Телефон</option>
-              <option value="email">Email</option>
-            </Select>
+            {/* — Форма внутри модалки */}
+            <form className="space-y-4" onSubmit={onSave} noValidate>
+              <Input
+                id="name"
+                label="Имя"
+                placeholder="Иван"
+                value={form.name}
+                onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
+                error={errors.name}
+                variant="glass"
+              />
 
-            <Input
-              id="contact"
-              label="Контакт"
-              placeholder="@username или +7…"
-              value={form.contact}
-              onChange={(e) => setForm((s) => ({ ...s, contact: e.target.value }))}
-              error={errors.contact}
-              variant="glass"
-            />
-          </form>
+              <Select
+                id="ctype"
+                label="Тип контакта"
+                value={form.contactType}
+                onChange={(e) => setForm((s) => ({ ...s, contactType: e.target.value }))}
+                hint="Telegram предпочтительно"
+                variant="glass"
+              >
+                <option value="telegram">Telegram</option>
+                <option value="phone">Телефон</option>
+                <option value="email">Email</option>
+              </Select>
+
+              <Input
+                id="contact"
+                label="Контакт"
+                placeholder="@username или +7…"
+                value={form.contact}
+                onChange={(e) => setForm((s) => ({ ...s, contact: e.target.value }))}
+                error={errors.contact}
+                variant="glass"
+              />
+            </form>
+          </div>
         </Modal.Body>
 
         <Modal.Footer>
