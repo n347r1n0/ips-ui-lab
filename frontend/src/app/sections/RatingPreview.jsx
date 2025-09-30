@@ -1,4 +1,7 @@
+// frontend/src/app/sections/RatingPreview.jsx
+
 import React from 'react';
+import { Card } from '@/ui/surfaces/Card';
 
 export function RatingPreview() {
   const rows = [
@@ -6,36 +9,79 @@ export function RatingPreview() {
     { pos: 2, tag: 'МИ', name: 'Максим И.', pts: 1512, win: '64%' },
     { pos: 3, tag: 'ЕС', name: 'Елена С.', pts: 1498, win: '72%' },
   ];
+
+  const getPositionAccent = (pos) => {
+    if (pos === 1) return 'bg-[--gold] text-[--bg-0]';
+    if (pos === 2) return 'bg-gray-400 text-[--bg-0]';
+    if (pos === 3) return 'bg-amber-600 text-[--bg-0]';
+    return 'bg-[--glass-bg] text-[--fg]';
+  };
+
   return (
-    <section id="rating" className="mb-10">
-      <div className="rounded-[var(--radius)] border border-[--glass-border] bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] p-5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-[--fg-strong]">Рейтинг игроков клуба</h2>
-          <span className="text-sm text-[--fg] opacity-80">демо</span>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="text-[--fg] opacity-70">
-              <tr>
-                <th className="text-left py-2 pr-4">#</th>
-                <th className="text-left py-2 pr-4">Игрок</th>
-                <th className="text-right py-2 pr-4">Очки</th>
-                <th className="text-right py-2">Вин%</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(r => (
-                <tr key={r.pos} className="border-t border-[--glass-border]">
-                  <td className="py-2 pr-4">{r.pos}</td>
-                  <td className="py-2 pr-4"><span className="px-2 py-0.5 rounded bg-white/10 mr-2">{r.tag}</span>{r.name}</td>
-                  <td className="py-2 pr-4 text-right">{r.pts}</td>
-                  <td className="py-2 text-right">{r.win}</td>
+    <section id="rating" className="mb-16">
+      <Card variant="glass" padding="lg" elevation="s">
+        <Card.Header className="mb-6">
+          <h2 className="text-2xl font-bold text-[--fg-strong] font-brand tracking-wide">
+            Рейтинг игроков клуба
+          </h2>
+          <span className="text-sm text-[--fg] opacity-70 bg-[--glass-bg] px-3 py-1 rounded-full border border-[--glass-border]">
+            демо
+          </span>
+        </Card.Header>
+        
+        <Card.Body>
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr className="border-b border-[--glass-border]">
+                  <th className="text-left py-4 pr-6 text-sm font-semibold text-[--fg] opacity-80 uppercase tracking-wider">
+                    Позиция
+                  </th>
+                  <th className="text-left py-4 pr-6 text-sm font-semibold text-[--fg] opacity-80 uppercase tracking-wider">
+                    Игрок
+                  </th>
+                  <th className="text-right py-4 pr-6 text-sm font-semibold text-[--fg] opacity-80 uppercase tracking-wider">
+                    Очки
+                  </th>
+                  <th className="text-right py-4 text-sm font-semibold text-[--fg] opacity-80 uppercase tracking-wider">
+                    Винрейт
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {rows.map((r, idx) => (
+                  <tr 
+                    key={r.pos} 
+                    className={`border-b border-[--glass-border] hover:bg-white/5 transition-colors duration-200 ${
+                      idx === rows.length - 1 ? 'border-b-0' : ''
+                    }`}
+                  >
+                    <td className="py-4 pr-6">
+                      <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold text-sm ${getPositionAccent(r.pos)}`}>
+                        {r.pos}
+                      </div>
+                    </td>
+                    <td className="py-4 pr-6">
+                      <div className="flex items-center">
+                        <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[--glass-bg] border border-[--glass-border] font-bold text-sm text-[--fg-strong] mr-3">
+                          {r.tag}
+                        </span>
+                        <span className="font-medium text-[--fg-strong] text-base">{r.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-4 pr-6 text-right">
+                      <span className="font-bold text-lg text-[--fg-strong]">{r.pts}</span>
+                    </td>
+                    <td className="py-4 text-right">
+                      <span className="font-semibold text-base text-[--success]">{r.win}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card.Body>
+      </Card>
     </section>
   );
 }
