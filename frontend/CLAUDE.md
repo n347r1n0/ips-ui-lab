@@ -2,51 +2,38 @@
 
 ## 0) Role & Scope
 
-You are a frontend co-developer working **only** in this sandbox: **Vite + React 19 + Tailwind**. Your job is to reproduce the PROD look & UX using fixtures and our local UI primitives.
+You are a co-developer **only** in this project: **Vite + React 19 + Tailwind**. Your goal is to reproduce the visual and UX from PROD while working **only in the sandbox** and using our primitives/tokens.
 
-* **Do not** change configs or dependencies.
-* **Do not** introduce libraries.
-* **Do not** touch backend/DB. Use fixtures only.
-* When you think a “creative” change could help, **pause and propose it first** (brief rationale + impact), don’t implement unilaterally.
+**Strictly forbidden**
+
+* Changing **dependencies, configs, build**, `index.html`.
+* Any DB/migrations/server/edge functions.
+* Opening a terminal, running scripts, ripgrep, etc.
+* Touching `frontend/src/PROD_comparison/**` (reference-only).
+
+If you want to “creatively” deviate — **propose briefly first** (what/why/impact), then edit.
 
 ---
 
-## 1) Project map — what to read/edit
+## 1) Where to read/edit
 
 ```
 frontend/src
-├─ App.jsx
-├─ index.css
-├─ main.jsx
 ├─ ui/
-│  ├─ tokens.css
-│  ├─ layout/
-│  │  ├─ PageShell.jsx
-│  │  ├─ Section.jsx
-│  │  └─ Toolbar.jsx
+│  ├─ tokens.css                # all colors/shadows/radii — ONLY here
 │  ├─ surfaces/
-│  │  ├─ Card.jsx
-│  │  ├─ Drawer.jsx
-│  │  ├─ GlassPanel.jsx
-│  │  ├─ Modal.jsx
-│  │  └─ Toast.jsx
+│  │  ├─ Modal.jsx              # unified modal
+│  │  ├─ Card.jsx  Drawer.jsx  Toast.jsx GlassPanel.jsx
 │  ├─ primitives/
-│  │  ├─ Button.jsx
-│  │  ├─ Input.jsx
-│  │  └─ Select.jsx
-│  ├─ feedback/
-│  │  ├─ EmptyState.jsx
-│  │  ├─ ErrorState.jsx
-│  │  ├─ LoadingOverlay.jsx
-│  │  ├─ Skeleton.jsx
-│  │  └─ Spinner.jsx
-│  ├─ demos/
-│  │  └─ FontsModal.jsx
-│  ├─ generated/
-│  │  ├─ font-vars.css
-│  │  └─ fonts.css
-│  └─ icons/
-│     └─ index.js
+│  │  ├─ Button.jsx  Input.jsx  Select.jsx
+│  ├─ layout/
+│  │  ├─ PageShell.jsx  Section.jsx  Toolbar.jsx ArtDecoDivider.jsx SectionSeparator.jsx
+│  └─ feedback/
+│     ├─ Spinner.jsx  Skeleton*.jsx  EmptyState.jsx  ErrorState.jsx LoadingOverlay.jsx
+├─ demo/tournaments/
+│  ├─ UpcomingTournamentsModal.jsx  TournamentListForDay.jsx
+│  ├─ RegistrationConfirmationModal.jsx  TournamentCard.jsx
+│  ├─ BuyInSummary.jsx  BlindsStructureViewer.jsx  fixtures.js
 ├─ app/
 │  ├─ layout/
 │  │  ├─ BaseLayout.jsx
@@ -60,108 +47,98 @@ frontend/src
 │     ├─ Hero.jsx
 │     ├─ RatingPreview.jsx
 │     └─ ValueProps.jsx
-├─ demo/
-│  └─ tournaments/
-│     ├─ BlindsStructureViewer.jsx
-│     ├─ BuyInSummary.jsx
-│     ├─ RegistrationConfirmationModal.jsx
-│     ├─ TournamentCard.jsx
-│     ├─ TournamentListForDay.jsx
-│     ├─ UpcomingTournamentsModal.jsx
-│     └─ fixtures.js
-└─ PROD_comparison/   (reference-only; drop PROD snippets here)
-
-
- (vite/tailwind/postcss configs — do not edit)
+└─ PROD_comparison/             # reference screenshots/snippets from PROD (reference-only)
 ```
 
-### Allowed edits
+**Allowed to edit:** `frontend/src/**` (except configs and `index.html`).
+**Do not open:** `node_modules/**`, `dist/**`, `.vite/**`, `public/**`.
 
-`frontend/src/**` **except** configs and `index.html`.
-You may add new files under `ui/**`, `demo/**`.
+**Imports via alias `@`:**
 
-### Hard excludes (don’t open/scan to save tokens/time)
-
-* `node_modules/**`
-* `.vite/**`, `dist/**`
-* `public/**`
-
-### Reference-only (don’t modify)
-
-* `frontend/src/PROD_comparison/**` — use to compare visuals/structure with PROD when needed.
-
-### Imports
-
-Use the alias `@` (already configured):
-`import { Button } from '@/ui/primitives/Button'`.
+```js
+import { Button } from '@/ui/primitives/Button'
+```
 
 ---
 
-## 2) Design & UX principles
+## 2) Design principles
 
-* Use **tokens** from `ui/tokens.css` (colors, radii, shadows). Don’t hardcode hex values in components.
-* Build on our primitives/surfaces/layouts; no third-party UI kits.
-* Lists use prop name **`items`**; single entity: `item` or `tournament`.
-* **Accessibility**: visible focus, `aria-label` on icon buttons, keep contrast.
-* **Cancel buttons** are `variant="glass"` by default. Destructive actions use `variant="danger"`.
-* **Hover stability in scrollable areas**: never change `border-width`, `padding`, `margin`, or `line-height` on hover; prefer color/opacity/background/shadow. For modals’ scroll bodies, keep `overflow-y: auto; min-height: 0;` and set `scrollbar-gutter: stable both-edges`.
-
----
-
-## 3) What exists now (you can reuse)
-
-* Layout: `PageShell`, `Section`, `Toolbar`
-* Surfaces: `GlassPanel`, `Card`, `Modal` (Header/Body/Footer), `Drawer`, `Toast`
-* Primitives: `Button`, `Input`, `Select`
-* Feedback: `Spinner`, `Skeleton(+Lines)`, `EmptyState`, `ErrorState`, `LoadingOverlay`
-* Demo tournament components/fixtures under `src/demo/tournaments/*`
-
-If a small primitive is missing (e.g., `Textarea`, `Checkbox`), add it under `ui/primitives/` reusing Input’s size/focus patterns.
+* **No “magic” values.** Colors/shadows/radii/blur — only via `ui/tokens.css`.
+* Use our **primitives/surfaces/layouts**. No third-party UI kits.
+* **Cancel** in modals — always `variant="glass"`. Destructive — `variant="danger"`.
+* Accessibility: visible `:focus`, aria-label on icon buttons, sufficient contrast.
+* In scrollable areas **do not change box-model on hover** (border-width/padding/margin/line-height). Allowed: color/opacity/background/shadow. For modal scroll bodies keep `overflow-y:auto; min-height:0;` and `scrollbar-gutter: stable both-edges`.
 
 ---
 
-## 4) Working style & guardrails
+## 3) What already exists (important for parity)
 
-* Keep changes **localized** and consistent with existing patterns.
-* Prefer composition over global CSS overrides.
-* If you’re unsure about a behavior or consider adding/removing a prop/variant, **propose first** (short note with pros/cons).
-* Do not introduce routing/state libs; this sandbox isn’t about app architecture.
+* **Modal** with variants:
+
+  * `variant="glass"` (default) and `variant="solid"` — “mother” opaque panel (neumorph).
+  * `backdrop="heavy"` — denser backdrop.
+  * `Modal.Header/Body/Footer` support **optional** `decoDivider` — thin art-deco line with glow.
+* **Button**: `primary | secondary | glass | ghost | danger | clay`. `clay` — “physical” 3D button.
+* **Tokens** for solid panels, clay buttons, art-deco divider, and backdrop are already defined in `tokens.css`.
+
+Minimal rules:
+
+* For large PROD-like modals: `<Modal variant="solid" backdrop="heavy" …>`.
+* `Header/Footer`: by default a regular border; **if accent needed** — `decoDivider`.
 
 ---
 
-## 5) Typical tasks you’ll do
+## 4) Working style
 
-* Build home sections (Header/Hero/ValueProps/CalendarPreview/RatingPreview/Footer) using our surfaces.
-* Tournament demo flows with fixtures only:
+* Make **small, localized** edits directly in sources (no “drafts” folder).
+* If you add a prop/variant — briefly justify it and keep it **reversible** (no breaking API).
+* Any new visual constants — first to `tokens.css`, then use in JSX.
 
-  * `UpcomingTournamentsModal` (list of `TournamentCard`)
-  * `TournamentListForDay`
-  * `RegistrationConfirmationModal` using `BuyInSummary` + `BlindsStructureViewer`
-* Extend the form kit minimally when needed (add primitives).
-* Ensure modal scroll areas are stable and accessible.
+**How to start a task:**
+
+1. Confirm you read this file and list 5–7 rules you will follow.
+2. Say **which files** you will touch and **what exact changes** you’ll make (brief).
+3. Apply changes.
+4. Short post-diff report (what changed visually and where to look).
+
+---
+
+## 5) Typical tasks (in this project)
+
+* Assemble tournament modals (lists, confirmation) on our primitives.
+* Fine-tune `Modal` (solid vs glass, backdrop, dividers, sticky slots).
+* Polish buttons (primary/ghost/glass/clay) and their roles in context.
+* Extend small primitives (Textarea/Checkbox/Radio/Switch) — in the spirit of Input/Select.
 
 ---
 
 ## 6) Definition of Done
 
-* Visual parity with PROD references (compare with `src/PROD_comparison/**` when provided).
-* No config/dependency changes.
-* Only token-based colors/shadows/radii.
-* Imports via `@`.
-* Modal Body uses `scrollbar-gutter: stable both-edges`.
-* Buttons follow roles (Cancel = glass; destructive = danger).
-* Accessibility basics are in place.
+* Parity with PROD in feel: background/shadows/radii/backdrop/z-index.
+* All colors/shadows/radii — from `tokens.css`, **no hex in JSX**.
+* Modal: `Body` uses `overflow-y:auto; min-height:0; [scrollbar-gutter:stable both-edges]`.
+* Cancel = `glass`; dangerous actions = `danger`; primary/“premium” — `primary` or `clay` per task.
+* No edits to configs/dependencies/DB. Imports via `@`.
 
 ---
 
-## 7) Commands
+## 7) Visual hints from PROD (reference)
 
-* `npm run dev` — local dev
-* `npm run build` — build
-* `npm run lint` — lint
+Reference files for alignment are in `frontend/src/PROD_comparison/files/`
+(e.g., `ModalBase.jsx`, `index.css`, `RegistrationConfirmationModal.jsx`, `DeleteConfirmModal.jsx`).
+**Do not edit them**, only consult to mirror the feel.
 
 ---
 
-## 8) When in doubt
+## 8) Hover policy inside modals (short)
 
-State the assumption and **ask before acting**. Suggest the smallest change that achieves the goal, and reference any snippet in `PROD_comparison` you used for alignment.
+* Don’t touch sizes on hover.
+* If you need a “border on hover” — keep **constant border-width** and change only `border-color` or `box-shadow`.
+* For accents use `outline`/`outline-offset` (doesn’t affect layout).
+* Scroll without “jumps”: `scrollbar-gutter: stable both-edges`.
+
+---
+
+## 9) When unsure
+
+Formulate 1–2 options, pick the minimal-risk one, **ask**, and only then edit.

@@ -1,3 +1,5 @@
+// frontend/src/app/layout/BaseLayout.jsx
+
 import React from 'react';
 import { SiteHeader } from './SiteHeader';
 import { SiteFooter } from './SiteFooter';

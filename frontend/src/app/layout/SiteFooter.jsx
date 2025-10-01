@@ -1,3 +1,5 @@
+// frontend/src/app/layout/SiteFooter.jsx
+
 import React from 'react';
 
 export function SiteFooter() {

@@ -24,8 +24,10 @@ export function UpcomingTournamentsModal({ items = [], onClose }) {
 
   return (
     <>
+
+
       <Modal open={true} onClose={onClose} size="xl" aria-labelledby="upcoming-title">
-        <Modal.Header onClose={onClose}>
+        <Modal.Header variant="solid" decoDivider onClose={onClose}>
           <span id="upcoming-title" className="font-brand">Ближайшие турниры</span>
         </Modal.Header>
 
@@ -47,7 +49,7 @@ export function UpcomingTournamentsModal({ items = [], onClose }) {
           )}
         </Modal.Body>
 
-        <Modal.Footer>
+        <Modal.Footer variant="solid">
           <Button variant="glass" onClick={onClose}>Закрыть</Button>
           <Button onClick={onClose}>Готово</Button>
         </Modal.Footer>

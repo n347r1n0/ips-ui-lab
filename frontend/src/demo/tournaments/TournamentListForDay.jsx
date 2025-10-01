@@ -1,3 +1,5 @@
+// frontend/src/demo/tournaments/TournamentListForDay.jsx
+
 import React, { useMemo, useState } from 'react';
 import { Modal } from '@/ui/surfaces/Modal';
 import { Button } from '@/ui/primitives/Button';

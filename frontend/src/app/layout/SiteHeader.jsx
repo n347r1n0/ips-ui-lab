@@ -1,3 +1,5 @@
+// frontend/src/app/layout/SiteHeader.jsx
+
 import React from 'react';
 import { Button } from '@/ui/primitives/Button';
 

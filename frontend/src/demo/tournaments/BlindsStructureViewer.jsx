@@ -1,3 +1,5 @@
+//  frontend/src/demo/tournaments/BlindsStructureViewer.jsx
+
 import React from 'react';
 import { TrendingUp, Coffee, Clock } from 'lucide-react';
 

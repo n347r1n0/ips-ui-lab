@@ -21,6 +21,18 @@
   --bg-1: #10141A;   /* panel */
   --bg-2: #141A22;   /* elevated */
 
+
+  /* Dividers */
+  --divider-weak: rgba(255,255,255,0.06);
+
+  /* Art-deco divider (золото по умолчанию) */
+  --divider-accent-strong: rgba(212,175,55,.75); /* ядро */
+  --divider-glow-color:    rgba(212,175,55,.45); /* свечение */
+  --divider-thickness:     1px;                  /* линия */
+  --divider-glow-radius:   10px;                 /* радиус свечения */
+
+
+
   /* Текст */
   --fg-strong: #F4F6F8;
   --fg:        #D3D7DE;
@@ -57,6 +69,18 @@
   --clay-shadow: 0 8px 20px rgba(0,0,0,0.45);
   --clay-inset:  inset 0 2px 0 rgba(255,255,255,0.06),
                  inset 0 -3px 0 rgba(0,0,0,0.35);
+  --clay-border: 2px solid rgba(0,0,0,0.30);
+  --clay-ledge:  0 8px 0 rgba(0,0,0,0.40);
+
+  /* Neumorphic mother panels */
+  --neuro-bg:     #2a2a2e;
+  --neuro-border: rgba(255,255,255,0.1);
+  --neuro-shadow: inset 8px 8px 16px rgba(0,0,0,0.4),
+                  inset -8px -8px 16px rgba(255,255,255,0.03),
+                  0 8px 32px rgba(0,0,0,0.3);
+
+  /* Heavy modal backdrops */
+  --backdrop-heavy: rgba(0,0,0,0.72);
 }
 
 /* ───────────────────────────────────────────────────────────────────
@@ -108,6 +132,45 @@ html, body, #root {
 .font-brand { font-family: var(--font-brand, var(--font-ui, system-ui)), sans-serif; }
 .font-serif { font-family: var(--font-serif, Georgia), serif; }
 .font-mono  { font-family: var(--font-mono, ui-monospace), SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace; }
+
+/* Art-Deco divider (тонкая золотая линия с затуханием) */
+:root {
+  /* интенсивность свечения линии (0–1). Можно ослабить до .35 при желании */
+  --deco-gold-core: 0.45;
+  --deco-gold-glow: 0.25;
+}
+
+
+
+/* утилитный класс: вставляем <div class="deco-line" /> */
+.deco-line {
+  height: 1px;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--gold) calc(var(--deco-gold-core)*100%), transparent) 50%,
+      transparent 100%
+    );
+  position: relative;
+}
+.deco-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* мягкое свечение чуть шире основной линии */
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in oklab, var(--gold) calc(var(--deco-gold-glow)*100%), transparent) 50%,
+      transparent 100%
+    );
+  filter: blur(1.5px);
+  opacity: .9;
+  pointer-events: none;
+}
+
 
 /* ───────────────────────────────────────────────────────────────────
    GLASS MODIFIERS (локальные усилители/ослабители)

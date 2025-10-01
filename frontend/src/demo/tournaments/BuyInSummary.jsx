@@ -1,3 +1,5 @@
+// frontend/src/demo/tournaments/BuyInSummary.jsx
+
 import React from 'react';
 import { DollarSign, RefreshCw, Plus, Clock } from 'lucide-react';
 

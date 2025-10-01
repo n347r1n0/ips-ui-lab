@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Modal } from '@/ui/surfaces/Modal';
 import { Button } from '@/ui/primitives/Button';
+import { Card } from '@/ui/surfaces/Card';
 import { DollarSign, CalendarDays, Clock } from 'lucide-react';
 import { BuyInSummary } from './BuyInSummary';
 import { BlindsStructureViewer } from './BlindsStructureViewer';
@@ -33,38 +34,70 @@ export function RegistrationConfirmationModal({ t, open, onClose, onConfirm }) {
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onClose} size="xl" aria-labelledby="reg-confirm-title">
+    <Modal 
+      open={open} 
+      onClose={onClose} 
+      size="xl" 
+      variant="solid" 
+      backdrop="heavy"
+      aria-labelledby="reg-confirm-title"
+    >
       <Modal.Header onClose={onClose}>
         <span id="reg-confirm-title" className="font-brand">Подтверждение регистрации</span>
+        <div className="text-sm text-[--fg] opacity-80 mt-1">
+          {t.name} • {fmtDate} • {fmtTime}
+        </div>
       </Modal.Header>
 
       <Modal.Body className="[scrollbar-gutter:stable_both-edges]">
-        {/* Турнир — краткая сводка */}
-        <div className="bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] rounded-[var(--radius)] p-4 md:p-5 mb-4">
-          <div className="text-[--fg-strong] text-lg font-semibold mb-1">{t.name}</div>
-          <div className="flex items-center gap-4 text-sm text-[--fg] opacity-80">
-            <span className="inline-flex items-center gap-2">
-              <CalendarDays className="w-4 h-4" />
-              {fmtDate}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              {fmtTime}
-            </span>
-            <span className="inline-flex items-center gap-2">
-              <DollarSign className="w-4 h-4" />
-              Формат: {t.format || 'Freezeout'}
-            </span>
-          </div>
-        </div>
+        {/* Player info - Glass Card */}
+        <Card variant="glass" padding="md" className="mb-6">
+          <Card.Body>
+            <div className="text-center">
+              <p className="text-[--fg] opacity-90">
+                Вы регистрируетесь как: <span className="text-[--fg-strong] font-medium">Демо игрок</span>
+              </p>
+              <p className="text-[--gold] opacity-80 text-sm mt-1">Участник клуба</p>
+            </div>
+          </Card.Body>
+        </Card>
 
-        {/* Две стеклянные карточки рядом на lg, в столбик на sm */}
-        <div className="grid lg:grid-cols-2 gap-4">
+        {/* Tournament details - Glass Cards */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Tournament info */}
+          <Card variant="glass" padding="md">
+            <Card.Header>
+              <h3 className="text-lg font-semibold text-[--fg-strong]">📅 Информация о турнире</h3>
+            </Card.Header>
+            <Card.Body>
+              <div className="space-y-3">
+                <div>
+                  <span className="text-[--fg] opacity-70 text-sm">Название:</span>
+                  <p className="text-[--fg-strong] font-medium">{t.name}</p>
+                </div>
+                <div>
+                  <span className="text-[--fg] opacity-70 text-sm">Формат:</span>
+                  <p className="text-[--fg-strong]">{t.format || 'Freezeout'}</p>
+                </div>
+                <div>
+                  <span className="text-[--fg] opacity-70 text-sm">Дата и время:</span>
+                  <p className="text-[--fg-strong]">{fmtDate}</p>
+                  <p className="text-[--fg-strong]">{fmtTime}</p>
+                </div>
+              </div>
+            </Card.Body>
+          </Card>
+
+          {/* Buy-in summary */}
           <BuyInSummary
             settings={t.settings?.buyInSettings}
             format={t.format}
             cost={t.settings?.buyInCost}
           />
+        </div>
+
+        {/* Blinds structure - Full width */}
+        <div className="mt-6">
           <BlindsStructureViewer structure={t.settings?.blinds || []} />
         </div>
       </Modal.Body>
@@ -73,7 +106,7 @@ export function RegistrationConfirmationModal({ t, open, onClose, onConfirm }) {
         <Button variant="glass" onClick={onClose} disabled={loading}>
           Отмена
         </Button>
-        <Button onClick={handleConfirm} disabled={loading}>
+        <Button variant="clay" onClick={handleConfirm} disabled={loading}>
           {loading ? 'Регистрация…' : 'Подтвердить регистрацию'}
         </Button>
       </Modal.Footer>

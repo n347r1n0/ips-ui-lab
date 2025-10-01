@@ -7,16 +7,17 @@ import { twMerge } from 'tailwind-merge';
 
 /**
  * Унифицированная модалка.
- * size: 'md' | 'lg' | 'xl' | 'fullscreen'
- *   md → max-w-md   (формы/подтверждения)
- *   lg → max-w-lg
- *   xl → max-w-4xl  (крупные, как в PROD)
- *   fullscreen → занимает весь экран, без скругления
+ *
+ * size:    'md' | 'lg' | 'xl' | 'fullscreen'
+ * variant: 'glass' | 'solid'
+ * backdrop:'normal' | 'heavy'
  */
 export function Modal({
   open,
   onClose,
   size = 'md',
+  variant = 'glass',
+  backdrop = 'normal',
   children,
   className = '',
   ...rest
@@ -49,6 +50,16 @@ export function Modal({
       ? 'fixed inset-0'
       : 'relative min-h-full flex items-center justify-center p-4';
 
+  const backdropStyle =
+    backdrop === 'heavy'
+      ? 'bg-[--backdrop-heavy] backdrop-blur-md'
+      : 'bg-black/60 backdrop-blur-sm';
+
+  const panelStyle =
+    variant === 'solid'
+      ? 'bg-[--neuro-bg] border border-[--neuro-border] [box-shadow:var(--neuro-shadow)]'
+      : 'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] shadow-[var(--shadow-m)]';
+
   return createPortal(
     <AnimatePresence>
       {open && (
@@ -62,13 +73,13 @@ export function Modal({
           aria-labelledby={rest['aria-labelledby']}
           {...rest}
         >
-          {/* подложка */}
+          {/* Подложка */}
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className={twMerge('absolute inset-0', backdropStyle)}
             onClick={onClose}
           />
 
-          {/* контейнер */}
+          {/* Контейнер */}
           <div className={wrapperSizing}>
             <motion.div
               initial={{ scale: size === 'fullscreen' ? 1 : 0.96, y: size === 'fullscreen' ? 0 : 12, opacity: 0 }}
@@ -86,13 +97,13 @@ export function Modal({
             >
               <div
                 className={twMerge(
-                  'flex flex-col bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] border border-[--glass-border] shadow-[var(--shadow-m)]',
+                  'flex flex-col',
+                  panelStyle,
                   size === 'fullscreen'
                     ? 'h-full rounded-none'
                     : 'rounded-[var(--radius)] max-h-[90vh]'
                 )}
               >
-
                 {children}
               </div>
             </motion.div>
@@ -104,10 +115,40 @@ export function Modal({
   );
 }
 
-/** Подкомпоненты с едиными отступами и границами */
-Modal.Header = function ModalHeader({ children, onClose }) {
+/**
+ * Подкомпоненты с едиными отступами и границами
+ *
+ * Доп. пропсы:
+ * - variant: 'glass' | 'solid' — влияет на цвет стандартного разделителя
+ * - decoDivider: boolean — включает арт-деко-линию (тонкая + мягкое свечение)
+ *
+ * Примечание: можно включить decoDivider отдельно для Header или Footer.
+ */
+
+Modal.Header = function ModalHeader({
+  children,
+  onClose,
+  className = '',
+  variant = 'glass',
+  decoDivider = false,
+  style,
+}) {
   return (
-    <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-5 md:px-8 md:py-6 border-b border-[--glass-border]">
+    <div
+      className={twMerge(
+        'sticky top-0 z-10 flex items-center justify-between px-6 py-5 md:px-8 md:py-6 border-b',
+        variant === 'solid' ? 'border-[--divider-weak]' : 'border-[--glass-border]',
+        decoDivider && 'relative border-transparent', // чтобы не было второй линии
+        // Один узкий псевдоэлемент с glow через box-shadow (чтобы не было «толстой плашки»)
+        decoDivider &&
+          "after:content-[''] after:absolute after:left-0 after:right-0 after:bottom-[-1px] " +
+          "after:h-[var(--divider-thickness,1px)] after:pointer-events-none " +
+          "after:bg-[linear-gradient(to_right,transparent,var(--divider-accent-strong),transparent)] " +
+          "after:[box-shadow:0_0_var(--divider-glow-radius,12px)_var(--divider-glow-color,rgba(212,175,55,.35))]",
+        className
+      )}
+      style={style}
+    >
       <h3 className="text-lg md:text-xl font-semibold text-[--fg-strong]">{children}</h3>
       {onClose && (
         <button
@@ -135,9 +176,28 @@ Modal.Body = function ModalBody({ children, className = '' }) {
   );
 };
 
-Modal.Footer = function ModalFooter({ children, className = '' }) {
+Modal.Footer = function ModalFooter({
+  children,
+  className = '',
+  variant = 'glass',
+  decoDivider = false,
+  style,
+}) {
   return (
-    <div className={twMerge('sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 md:px-8 md:py-5 border-t border-[--glass-border]', className)}>
+    <div
+      className={twMerge(
+        'sticky bottom-0 flex items-center justify-end gap-3 px-6 py-4 md:px-8 md:py-5 border-t',
+        variant === 'solid' ? 'border-[--divider-weak]' : 'border-[--glass-border]',
+        decoDivider && 'relative border-transparent',
+        decoDivider &&
+          "after:content-[''] after:absolute after:left-0 after:right-0 after:top-[-1px] " +
+          "after:h-[var(--divider-thickness,1px)] after:pointer-events-none " +
+          "after:bg-[linear-gradient(to_right,transparent,var(--divider-accent-strong),transparent)] " +
+          "after:[box-shadow:0_0_var(--divider-glow-radius,12px)_var(--divider-glow-color,rgba(212,175,55,.35))]",
+        className
+      )}
+      style={style}
+    >
       {children}
     </div>
   );

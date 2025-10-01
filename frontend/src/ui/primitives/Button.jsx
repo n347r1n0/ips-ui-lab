@@ -36,9 +36,13 @@ const VARIANT = {
     'bg-[--danger] text-white hover:brightness-110 ' +
     'focus:[box-shadow:0_0_0_2px_color-mix(in_oklab,var(--danger),white_25%)]',
   clay:
-    'text-[--fg-strong] bg-[--clay-bg] shadow-[var(--clay-shadow)] ' +
-    '[box-shadow:var(--clay-inset),var(--clay-shadow)] ' +
-    'hover:[filter:brightness(1.03)] active:translate-y-[1px]',
+    'text-[--fg-strong] bg-[--clay-bg] rounded-2xl ' +
+    '[box-shadow:var(--clay-ledge),var(--clay-inset),var(--clay-shadow)] ' +
+    'border-[0] [border:var(--clay-border)] ' +         /* использует --clay-border */
+    'hover:[filter:brightness(1.05)] active:translate-y-[1px] ' +
+    'font-semibold tracking-wide',
+
+
 };
 
 export function Button({

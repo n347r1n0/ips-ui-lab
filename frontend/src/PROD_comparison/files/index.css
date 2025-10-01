@@ -1,0 +1,558 @@
+/* src/index.css */
+
+/* Директивы @tailwind */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* 👇 ДОБАВЛЯЕМ ЭТОТ БЛОК ДЛЯ ПОДКЛЮЧЕНИЯ ШРИФТА 👇 */
+@layer base {
+  @font-face {
+    font-family: 'Museo Cyrl';
+    font-weight: 700;
+    src: url('/fonts/exljbris - Museo Cyrl 700.otf') format('opentype');
+  }
+}
+/* ☝️ КОНЕЦ БЛОКА ☝️ */
+
+
+/* === ГЛОБАЛЬНЫЕ СТИЛИ СТРАНИЦЫ === */
+body {
+  /* Базовый темный цвет на случай, если текстура не загрузится */
+  /*background-color: theme('colors.primary-bg');*/
+  background-color: #363333;
+
+
+  /* Ваша новая светлая текстура для подложки */
+  background-image: url('/textures/subtle-light-texture.png');
+
+  /* Заставляем текстуру повторяться, а не растягиваться */
+  background-repeat: repeat;
+}
+/* ================================= */
+
+
+
+
+/* === НАШИ КАСТОМНЫЕ КОМПОНЕНТЫ === */
+@layer components {
+  /* === DUMB BUTTON SYSTEM === */
+  
+  /* Base Shapes - Form Only */
+  
+  /* Claymorphic shape - 3D depth with box-shadow blur */
+  .btn-clay {
+    @apply inline-flex items-center justify-center;
+    @apply focus:outline-none focus:ring-2 focus:ring-gold-accent/50;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.75rem 1.5rem;
+    min-height: 44px;
+    border-radius: 1rem; /* medium radius */
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+    /* 3D claymorphic depth with box-shadow blur */
+    box-shadow: 
+      0 8px 0 rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.15),
+      0 6px 20px rgba(0, 0, 0, 0.5);
+  }
+  
+  .btn-clay:hover {
+    /* No transforms - avoid mobile jitter */
+    box-shadow: 
+      0 10px 0 rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.2),
+      0 8px 25px rgba(0, 0, 0, 0.6);
+  }
+  
+  .btn-clay:active {
+    box-shadow: 
+      0 4px 0 rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+  
+  /* Glass shape - translucent with backdrop-filter */
+  .btn-glass {
+    @apply inline-flex items-center justify-center;
+    @apply focus:outline-none focus:ring-2 focus:ring-white/50;
+    @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 0.75rem 1.5rem;
+    min-height: 44px;
+    border-radius: 0.5rem; /* squarer */
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    color: white;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-glass:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+  
+  .btn-glass:active {
+    background: rgba(255, 255, 255, 0.08);
+  }
+  
+  /* Colors/Gradients - Color Only (use on top of base shapes) */
+  
+  /* Primary luxury button - blue-green linear gradient */
+  .luxury-button {
+    background: linear-gradient(145deg, #007193, #00A29C) !important;
+    color: white;
+  }
+  
+  /* Conic gradient variant */
+  .luxury-button-conic {
+    background: conic-gradient(from 210deg at 50% 50%, #00A29C, #2dd4bf 50%, #007193) !important;
+    color: white;
+  }
+  
+  /* Elliptic radial gradient variant */
+  .luxury-button-elliptic {
+    background: radial-gradient(120% 80% at 50% 50%, #00A29C 0%, #007193 100%) !important;
+    color: white;
+  }
+
+  /* Button sizes with proper padding */
+  .btn-sm { 
+    @apply text-xs;
+    padding: 0.5rem 1rem;
+    min-height: 36px;
+  }
+  .btn-md { 
+    @apply text-sm;
+    padding: 0.75rem 1.5rem;
+    min-height: 44px;
+  }
+  .btn-lg { 
+    @apply text-base;
+    padding: 1rem 2rem;
+    min-height: 52px;
+  }
+
+  /* Primary claymorphic action button with Inter styling */
+  .btn-primary {
+    @apply rounded-2xl text-white;
+    background: linear-gradient(145deg, #007193, #00A29C);
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    box-shadow: 
+      0 8px 0 rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.15),
+      0 6px 20px rgba(0, 0, 0, 0.5),
+      0 4px 15px rgba(0, 113, 147, 0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 10px 0 rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.2),
+      0 8px 25px rgba(0, 0, 0, 0.6),
+      0 6px 20px rgba(0, 113, 147, 0.4);
+    background: linear-gradient(145deg, #1985a3, #1ab3ac);
+  }
+  .btn-primary:active {
+    transform: translateY(4px);
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Gold Secondary - Important secondary actions */
+  .btn-secondary {
+    @apply rounded-xl text-white;
+    background: linear-gradient(145deg, #D4AF37, #B8941F);
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 6px 0 rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 4px 15px rgba(0, 0, 0, 0.4),
+      0 2px 12px rgba(212, 175, 55, 0.3);
+  }
+  .btn-secondary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 7px 0 rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 5px 20px rgba(0, 0, 0, 0.5),
+      0 3px 15px rgba(212, 175, 55, 0.4);
+    background: linear-gradient(145deg, #E6C14D, #D4AF37);
+  }
+  .btn-secondary:active {
+    transform: translateY(2px);
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+
+  /* Danger claymorphic button with Inter styling */
+  .btn-danger {
+    @apply rounded-xl text-white;
+    background: linear-gradient(145deg, #dc2626, #b91c1c);
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 6px 0 rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15),
+      0 4px 15px rgba(0, 0, 0, 0.4),
+      0 2px 10px rgba(220, 38, 38, 0.4);
+  }
+  .btn-danger:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 7px 0 rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 5px 20px rgba(0, 0, 0, 0.5),
+      0 3px 15px rgba(220, 38, 38, 0.5);
+    background: linear-gradient(145deg, #ef4444, #dc2626);
+  }
+  .btn-danger:active {
+    transform: translateY(3px);
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 1px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Neutral Gray - Utility actions (close, back) */
+  .btn-neutral {
+    @apply rounded-xl text-white/90;
+    background: linear-gradient(145deg, #3c3c40, #2c2c30);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    box-shadow:
+      0 3px 0 rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 2px 6px rgba(0, 0, 0, 0.25);
+  }
+  .btn-neutral:hover {
+    @apply text-white;
+    transform: translateY(-1px);
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.3),
+      0 3px 8px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    background: linear-gradient(145deg, #434347, #323236);
+  }
+  .btn-neutral:active {
+    transform: translateY(1px);
+    box-shadow:
+      0 1px 0 rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Opaque neumorphic panels for content areas */
+  .neumorphic-panel {
+    background: #2a2a2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 1.5rem; /* Larger border radius for mother panels */
+    position: relative;
+    z-index: 10;
+    box-shadow:
+      inset 8px 8px 16px rgba(0, 0, 0, 0.4),
+      inset -8px -8px 16px rgba(255, 255, 255, 0.03),
+      0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  .neumorphic-panel:hover {
+    border-color: rgba(212, 175, 55, 0.2);
+    box-shadow:
+      inset 8px 8px 16px rgba(0, 0, 0, 0.4),
+      inset -8px -8px 16px rgba(255, 255, 255, 0.04),
+      0 12px 40px rgba(0, 0, 0, 0.35);
+  }
+
+    /* Glassmorphic panels for content areas (auth, tournament cards, etc.) */
+  .glassmorphic-panel {
+    @apply bg-black/50 backdrop-blur-xl border border-white/15;
+    position: relative;
+    z-index: 20; /* Higher z-index to prevent transparency bleed */
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+  .glassmorphic-panel:hover {
+    @apply border-white/20;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+    /* === 👇 ДОБАВЛЯЕМ НОВЫЙ КЛАСС БЕЗ HOVER-ЭФФЕКТА 👇 === */
+  .gallery-card-panel {
+    @apply bg-black/50 backdrop-blur-xl border border-glass-border shadow-lg;
+  }
+
+
+
+
+
+
+
+
+
+
+
+  /* Neumorphic containers - opaque full-page shells */
+  .neumorphic-container {
+    background: #2a2a2e;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    z-index: 40; /* Lower z-index so registration modals can appear on top */
+    border-radius: 0; /* Full screen modals have no border radius */
+    box-shadow:
+      inset 8px 8px 16px rgba(0, 0, 0, 0.4),
+      inset -8px -8px 16px rgba(255, 255, 255, 0.03);
+  }
+
+  /* Ensure proper spacing for modal content */
+  .neumorphic-container .spacing-content > * {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .neumorphic-inset {
+    @apply shadow-[inset_6px_6px_12px_rgba(0,0,0,0.4),_inset_-6px_-6px_12px_rgba(255,255,255,0.03)];
+  }
+
+  .art-deco-divider {
+    @apply w-full h-[3px] bg-gradient-to-r from-transparent via-gold-accent to-transparent relative;
+    filter: drop-shadow(0 0 5px var(--tw-shadow-color));
+    --tw-shadow-color: theme('colors.gold-accent');
+  }
+  .gold-highlight {
+      @apply text-gold-accent;
+      text-shadow: 0 0 15px theme('colors.gold-accent/50%');
+  }
+
+  /*
+  .luxury-button {
+      @apply bg-gradient-to-r from-[#426D74] to-[#007193] text-white font-bold uppercase tracking-wider border border-white/20 transition-all duration-300;
+  }
+  */
+  /* 👇 ЗАМЕНЯЕМ СТАРЫЙ HOVER НА НОВЫЙ, БОЛЕЕ ПРОДВИНУТЫЙ */
+  /*
+  .luxury-button:hover {
+      @apply -translate-y-0.5 shadow-[0_8px_25px_theme(colors.deep-teal/40%)];
+  }
+  .luxury-button:hover {
+      @apply shadow-lg -translate-y-0.5;
+  }*/
+
+
+  /* Базовый набор свойств (без формы, только визуальные эффекты + hover) */
+  .luxury-button,
+  .luxury-button-linear,
+  .luxury-button-linear3,
+  .luxury-button-conic,
+  .luxury-button-elliptic {
+    @apply text-white font-bold uppercase tracking-wider border border-white/20 transition-all duration-300;
+  }
+  .luxury-button:hover,
+  .luxury-button-linear:hover,
+  .luxury-button-linear3:hover,
+  .luxury-button-conic:hover,
+  .luxury-button-elliptic:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 10px 0 rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.2),
+      0 8px 25px rgba(0, 0, 0, 0.6),
+      0 6px 20px rgba(0, 113, 147, 0.4);
+  }
+
+  .luxury-button:active,
+  .luxury-button-linear:active,
+  .luxury-button-linear3:active,
+  .luxury-button-conic:active,
+  .luxury-button-elliptic:active {
+    transform: translateY(4px);
+    box-shadow:
+      0 4px 0 rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Enhanced claymorphic blue-green buttons with Inter font and proper shadows */
+  .luxury-button,
+  .luxury-button-linear,
+  .luxury-button-linear3,
+  .luxury-button-conic,
+  .luxury-button-elliptic {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
+    @apply text-white rounded-2xl;
+    border: 2px solid rgba(0, 0, 0, 0.3);
+    box-shadow:
+      0 8px 0 rgba(0, 0, 0, 0.4),
+      inset 0 2px 0 rgba(255, 255, 255, 0.15),
+      0 6px 20px rgba(0, 0, 0, 0.5),
+      0 4px 15px rgba(0, 113, 147, 0.3);
+    transition: all 0.2s ease;
+    padding: 0.75rem 1.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.875rem;
+  }
+
+  /* Градиенты (только background) — меняешь имя класса и всё */
+  .luxury-button {                           /* твой текущий дефолт */
+    background: linear-gradient(145deg, #00A29C, #007193);
+  }
+  .luxury-button-linear {                    /* обычный линейный */
+    background: linear-gradient(135deg, #00A29C, #007193);
+  }
+  .luxury-button-linear3 {                   /* трёхцветный линейный */
+    background: linear-gradient(135deg, #00A29C, #2dd4bf, #007193);
+  }
+  .luxury-button-conic {                     /* угловой */
+    background: conic-gradient(from 210deg at 50% 50%, #00A29C, #2dd4bf 50%, #007193);
+  }
+  .luxury-button-elliptic {                  /* эллиптический радиальный */
+    background: radial-gradient(120% 80% at 50% 50%, #00A29C 0%, #007193 100%);
+  }
+
+
+
+
+
+
+
+  /* Typography and spacing system */
+  .heading-lg { @apply text-2xl font-brand text-white leading-tight; }
+  .heading-md { @apply text-xl font-brand text-white leading-snug; }
+  .heading-sm { @apply text-lg font-brand text-white leading-normal; }
+
+  .text-body { @apply text-base text-white/90 leading-relaxed; }
+  .text-secondary { @apply text-sm text-white/70 leading-normal; }
+  .text-caption { @apply text-xs text-white/60 leading-tight; }
+
+  .spacing-section { @apply space-y-6; }
+  .spacing-content { @apply space-y-4; }
+  .spacing-tight { @apply space-y-2; }
+
+
+
+  /* === СТИЛИ ДЛЯ КАЛЕНДАРЯ === */
+  .watermark-number {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900;
+    -webkit-text-stroke: 1px currentColor;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    letter-spacing: -0.05em;
+  }
+
+  .results-table { color:#fff; }
+  .results-table, .results-table * { -webkit-text-fill-color: initial; }
+
+  /* === TELEGRAM WIDGET STYLING === */
+  .telegram-widget-container iframe {
+    border-radius: 8px;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+    transition: all 0.3s ease;
+  }
+
+  .telegram-widget-container iframe:hover {
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.4));
+    transform: translateY(-1px);
+  }
+
+  /* Класс для контроля заливки watermark */
+  .watermark-number-filled {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900;
+    -webkit-text-stroke: 1px currentColor;
+    -webkit-text-fill-color: currentColor;
+    text-shadow: none;
+    letter-spacing: -0.05em;
+    opacity: 0.35; /* Отдельное управление прозрачностью заливки */
+  }
+
+  .watermark-number-outline {
+    font-family: 'Syne', sans-serif;
+    font-weight: 900;
+    -webkit-text-stroke: 1px currentColor;
+    -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    letter-spacing: -0.05em;
+    opacity: 0.6; /* Отдельное управление прозрачностью обводки */
+  }
+}
+/* ================================== */
+
+
+
+
+/* === СКРЫВАЕМ СКРОЛЛБАР === */
+
+/* Для Chrome, Safari, Edge и других WebKit-браузеров */
+body::-webkit-scrollbar {
+  display: none;
+}
+
+/* Для Firefox */
+body {
+  scrollbar-width: none;
+}
+
+/* Для Internet Explorer и старых Edge */
+body {
+  -ms-overflow-style: none;
+}
+/* ========================== */
+
+
+
+/* Стили для ВСЕХ скроллбаров в приложении (для Chrome/Edge/Safari) */
+::-webkit-scrollbar {
+  width: 5px !important;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  border-radius: 20px !important;
+  border: transparent !important;
+}
+
+/* Прячем кнопки-стрелки, делая их нулевого размера */
+::-webkit-scrollbar-button {
+  height: 0 !important;
+  width: 0 !important;
+  opacity: 0;
+  background-color: transparent;
+}
+
+/* Стили для ВСЕХ скроллбаров в приложении (для Firefox) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+body, html {
+  /* ...ваши старые стили... */
+  overflow-x: hidden;
+}
