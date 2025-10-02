@@ -1,6 +1,7 @@
 // frontend/src/ui/layout/SectionSeparator.jsx
 
 import React from 'react';
+import { ArtDecoDivider } from './ArtDecoDivider';
 
 /**
  * SectionSeparator — токен-драйвовый разделитель секций.
@@ -20,10 +21,13 @@ import React from 'react';
  *  - 'glass' — простая тонкая линия на стеклянном бордере (с постепенным затуханием к краям)
  *  - 'none' — ничего не рендерит
  */
+
+
 export function SectionSeparator({
   variant = 'deco',
   width = 'content',
   margin = 'lg',
+  thickness = '2.4px',
   className = '',
 }) {
   if (variant === 'none') return null;
@@ -62,35 +66,16 @@ export function SectionSeparator({
     );
   }
 
-  // variant === 'deco' (арт-деко как в модалках)
+  // variant === 'deco' — низкоуровневый примитив, ширину/отступы даём тут
   return (
     <div className={`flex items-center justify-center ${wrap}`}>
-      <div
-        className={`${innerWidth} relative`}
-        style={{ height: 'var(--divider-thickness, 1px)' }}
-      >
-        {/* Центральная тонкая линия с затуханием к краям */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              'linear-gradient(to right, transparent, var(--divider-accent-strong), transparent)',
-          }}
-        />
-        {/* Мягкое свечение, которое тоже затухает к краям (не «полосой») */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background:
-              'linear-gradient(to right, transparent, var(--divider-glow-color), transparent)',
-            filter: 'blur(2px)',
-            opacity: 0.9,
-          }}
-        />
-      </div>
+      <ArtDecoDivider
+        className={`${innerWidth}`}
+        style={{ '--divider-thickness': thickness }}
+      />
     </div>
   );
+
 }
 
 export default SectionSeparator;
