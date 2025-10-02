@@ -5,7 +5,7 @@ import { Card } from '@/ui/surfaces/Card';
 
 export function GalleryCta() {
   return (
-    <section id="gallery" className="mb-16">
+    <section className="mb-16">
       <Card variant="glass" padding="lg" elevation="s">
         <div className="grid md:grid-cols-2 gap-8 items-center">
           <div className="space-y-4">

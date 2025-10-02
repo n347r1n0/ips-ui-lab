@@ -1,3 +1,5 @@
+// frontend/src/ui/patterns/MobileChipTabs.jsx
+
 import React, { useRef, useEffect, useMemo } from 'react';
 import { twMerge } from 'tailwind-merge';
 

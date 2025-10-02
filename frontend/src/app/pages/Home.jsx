@@ -8,57 +8,59 @@ import { RatingPreview } from '@/app/sections/RatingPreview';
 import { GalleryCta } from '@/app/sections/GalleryCta';
 import { SectionSeparator } from '@/ui/layout/SectionSeparator';
 import { MobileChipTabs } from '@/ui/patterns/MobileChipTabs';
-import { useActiveSection } from '@/hooks/useActiveSection';
-
+import { SectionAnchor } from '@/ui/patterns/SectionAnchor';
+import { useSectionNav } from '@/hooks/useSectionNav';
+import { SECTIONS } from '@/ui/navigation/sections';
 
 export function Home({ onOpenTournaments }) {
+  // 1. Сохраняем ваш работающий хук
+  const ids = SECTIONS.map(s => s.id);
+  const { activeId, scrollTo, register } = useSectionNav(ids);
 
-  const navItems = [
-    { id: 'hero',      label: 'Главная' },
-    { id: 'about',     label: 'О клубе' },
-    { id: 'rating',    label: 'Рейтинг' },
-    { id: 'calendar',  label: 'Календарь' },
-    { id: 'gallery',   label: 'Галерея' },
-  ];
-  const activeId = useActiveSection(navItems.map(i => i.id));
-  const scrollTo = (id) => {
-    const el = document.getElementById(`section-${id}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
+  // 2. Преобразуем данные специально для MobileChipTabs, добавляя JSX с иконками
+  const mobileChipItems = SECTIONS.map(s => ({
+    id: s.id,
+    label: s.label,
+    icon: s.Icon ? <s.Icon className="w-4 h-4" aria-hidden="true" /> : null,
+  }));
 
 
   return (
     <div className="space-y-0">
-      ---<Hero onOpenTournaments={onOpenTournaments} />
-      <div id="section-hero" data-nav-id="hero"><Hero onOpenTournaments={onOpenTournaments} /></div>
-      
-      <SectionSeparator />
-      ---<ValueProps />
-      <div id="section-about" data-nav-id="about"><ValueProps /></div>
+      {/* 3. Сохраняем ваши компоненты SectionAnchor */}
+      <SectionAnchor id="hero" register={register}>
+        <Hero onOpenTournaments={onOpenTournaments} />
+      </SectionAnchor>
 
+      <SectionSeparator thickness="2px" />
+      <SectionAnchor id="about" register={register}>
+        <ValueProps />
+      </SectionAnchor>
 
-      <SectionSeparator />
-      ---<CalendarPreview onOpenTournaments={onOpenTournaments} />
-      <div id="section-calendar" data-nav-id="calendar"><CalendarPreview onOpenTournaments={onOpenTournaments} /></div>
+      <SectionSeparator thickness="2px" />
+      <SectionAnchor id="calendar" register={register}>
+        <CalendarPreview onOpenTournaments={onOpenTournaments} />
+      </SectionAnchor>
 
-      <SectionSeparator />
-      ---<RatingPreview />
-      <div id="section-rating" data-nav-id="rating"><RatingPreview /></div>
+      <SectionSeparator thickness="2px" />
+      <SectionAnchor id="rating" register={register}>
+        <RatingPreview />
+      </SectionAnchor>
 
-      <SectionSeparator />
-      ---<GalleryCta />
-      <div id="section-gallery" data-nav-id="gallery"><GalleryCta /></div>
+      <SectionSeparator thickness="2px" />
+      <SectionAnchor id="gallery" register={register}>
+        <GalleryCta />
+      </SectionAnchor>
 
-      {/* Мобильная лента — показываем только на узких экранах */}
+      {/* 4. Передаем в мобильные табы новый, преобразованный массив */}
       <div className="sm:hidden">
         <MobileChipTabs
-          items={navItems}
+          items={mobileChipItems}
           activeId={activeId}
           onTabClick={scrollTo}
         />
       </div>
-
     </div>
   );
 }
+

@@ -89,6 +89,15 @@
 
   /* Heavy modal backdrops */
   --backdrop-heavy: rgba(0,0,0,0.72);
+
+  /* ChipNav (плавающая фишка) */
+  --chip-size:        92px;                      /* диаметр круга */
+  --chip-offset:      34%;                       /* насколько «торчит» из угла */
+  --chip-bg:          color-mix(in oklab, var(--bg-2) 78%, black);
+  --chip-ring:        conic-gradient(from 0deg, rgba(255,255,255,.12), rgba(255,255,255,.04) 30%, rgba(255,255,255,.12) 60%, rgba(255,255,255,.04) 90%, rgba(255,255,255,.12));
+  --chip-shadow:      0 8px 24px rgba(0,0,0,.5);
+  --chip-border:      1px solid rgba(255,255,255,.15);
+  --chip-accent:      var(--gold);
 }
 
 /* ───────────────────────────────────────────────────────────────────

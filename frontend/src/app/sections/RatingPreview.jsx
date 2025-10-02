@@ -18,7 +18,7 @@ export function RatingPreview() {
   };
 
   return (
-    <section id="rating" className="mb-16">
+    <section className="mb-16">
       <Card variant="glass" padding="lg" elevation="s">
         <Card.Header className="mb-6">
           <h2 className="text-2xl font-bold text-[--fg-strong] font-brand tracking-wide">
