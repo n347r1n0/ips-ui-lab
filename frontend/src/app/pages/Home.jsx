@@ -11,6 +11,7 @@ import { MobileChipTabs } from '@/ui/patterns/MobileChipTabs';
 import { SectionAnchor } from '@/ui/patterns/SectionAnchor';
 import { useSectionNav } from '@/hooks/useSectionNav';
 import { SECTIONS } from '@/ui/navigation/sections';
+import { FloatingChipWheel } from '@/ui/patterns/FloatingChipWheel';
 
 export function Home({ onOpenTournaments }) {
   // 1. Сохраняем ваш работающий хук
@@ -60,6 +61,19 @@ export function Home({ onOpenTournaments }) {
           onTabClick={scrollTo}
         />
       </div>
+
+      {/* Новая круговая «фишка» (MVP) */}
+      <FloatingChipWheel
+        items={mobileChipItems}
+        activeId={activeId}
+        onSelect={scrollTo}
+        dock="br"    // пока фиксируем в правый-нижний
+        stepDeg={40}
+        labelClassName="text-left"
+        labelClassName="text-sm"
+        labelClassName="px-2 py-1"
+      />
+
     </div>
   );
 }
