@@ -1,3 +1,5 @@
+// frontend/src/hooks/useSectionNav.js
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**

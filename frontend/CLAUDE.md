@@ -23,13 +23,17 @@ frontend/src
 │  ├─ tokens.css                # all colors/shadows/radii — ONLY here
 │  ├─ surfaces/
 │  │  ├─ Modal.jsx              # unified modal
-│  │  ├─ Card.jsx  Drawer.jsx  Toast.jsx GlassPanel.jsx
+│  │  ├─ Card.jsx  Drawer.jsx  Toast.jsx  GlassPanel.jsx
 │  ├─ primitives/
 │  │  ├─ Button.jsx  Input.jsx  Select.jsx
 │  ├─ layout/
-│  │  ├─ PageShell.jsx  Section.jsx  Toolbar.jsx ArtDecoDivider.jsx SectionSeparator.jsx
-│  └─ feedback/
-│     ├─ Spinner.jsx  Skeleton*.jsx  EmptyState.jsx  ErrorState.jsx LoadingOverlay.jsx
+│  │  ├─ PageShell.jsx  Section.jsx  Toolbar.jsx  ArtDecoDivider.jsx  SectionSeparator.jsx
+│  ├─feedback/
+│  │  ├─ Spinner.jsx  Skeleton*.jsx  EmptyState.jsx  ErrorState.jsx LoadingOverlay.jsx
+│  ├─ patterns/                # Complex, reusable UX patterns (MobileChipTabs, FloatingChipWheel, SectionAnchor)
+│  └─ navigation/              # Navigation-specific data/logic (e.g., sections.js)
+├─ hooks/
+│  └─ useSectionNav.js         # Hook for scroll-spy navigation on Home page
 ├─ demo/tournaments/
 │  ├─ UpcomingTournamentsModal.jsx  TournamentListForDay.jsx
 │  ├─ RegistrationConfirmationModal.jsx  TournamentCard.jsx
@@ -59,6 +63,11 @@ frontend/src
 import { Button } from '@/ui/primitives/Button'
 ```
 
+**Navigation config location (single source of truth):**
+`frontend/src/ui/navigation/sections.js` — define `{ id, label, Icon }` here and consume everywhere else. **Do not duplicate or move**.
+
+**Path stability:** do not relocate files without a short “what/why/impact” note first.
+
 ---
 
 ## 2) Design principles
@@ -68,6 +77,7 @@ import { Button } from '@/ui/primitives/Button'
 * **Cancel** in modals — always `variant="glass"`. Destructive — `variant="danger"`.
 * Accessibility: visible `:focus`, aria-label on icon buttons, sufficient contrast.
 * In scrollable areas **do not change box-model on hover** (border-width/padding/margin/line-height). Allowed: color/opacity/background/shadow. For modal scroll bodies keep `overflow-y:auto; min-height:0;` and `scrollbar-gutter: stable both-edges`.
+* **Layout controls width.** Components (`Card`, `EmptyState`, etc.) are fluid (`w-full`). Width is defined **only** by the parent layout container (`PageShell`, grid columns), not by `max-w-*` inside components.
 
 ---
 
@@ -78,10 +88,23 @@ import { Button } from '@/ui/primitives/Button'
   * `variant="glass"` (default) and `variant="solid"` — “mother” opaque panel (neumorph).
   * `backdrop="heavy"` — denser backdrop.
   * `Modal.Header/Body/Footer` support **optional** `decoDivider` — thin art-deco line with glow.
+
 * **Button**: `primary | secondary | glass | ghost | danger | clay`. `clay` — “physical” 3D button.
+
 * **Tokens** for solid panels, clay buttons, art-deco divider, and backdrop are already defined in `tokens.css`.
 
-Minimal rules:
+* **Layout System:**
+  `PageShell` (max-width, gutters) and `Section` (vertical rhythm) are the primary containers.
+
+* **Scroll-spy Navigation (Home):**
+  `useSectionNav` provides `activeId` and `scrollTo`;
+  `SectionAnchor` registers a section with the hook;
+  `SECTIONS` in `ui/navigation/sections.js` is the **single source of truth**.
+
+* **Mobile Navigation Patterns:**
+  `MobileChipTabs` (linear strip) and `FloatingChipWheel` (circular chip). Both consume `SECTIONS` and sync with `useSectionNav`.
+
+**Minimal rules:**
 
 * For large PROD-like modals: `<Modal variant="solid" backdrop="heavy" …>`.
 * `Header/Footer`: by default a regular border; **if accent needed** — `decoDivider`.
@@ -118,6 +141,8 @@ Minimal rules:
 * All colors/shadows/radii — from `tokens.css`, **no hex in JSX**.
 * Modal: `Body` uses `overflow-y:auto; min-height:0; [scrollbar-gutter:stable both-edges]`.
 * Cancel = `glass`; dangerous actions = `danger`; primary/“premium” — `primary` or `clay` per task.
+* Navigation (Home) pulls sections from **one place**: `ui/navigation/sections.js`; `useSectionNav` + `SectionAnchor` control `activeId/scrollTo`. `MobileChipTabs` and `FloatingChipWheel` consume the same data.
+* **FloatingChipWheel (MVP)**: visual/geometric tuning via props (`size`, `radius`, `centerAngle`, `stepDeg`, `offset`, `iconSize`, `chipSize`, `labelOffset`, `labelClassName`); tap/click changes active item with synced icon + label; hidden on desktop by default (`sm:hidden`) unless explicitly enabled.
 * No edits to configs/dependencies/DB. Imports via `@`.
 
 ---
@@ -142,3 +167,16 @@ Reference files for alignment are in `frontend/src/PROD_comparison/files/`
 ## 9) When unsure
 
 Formulate 1–2 options, pick the minimal-risk one, **ask**, and only then edit.
+
+---
+
+### Appendix — current PROD vs Sandbox (high-level)
+
+* **Modal stack:** PROD `ModalBase` uses custom utilities/gradients; Sandbox `Modal` is token-driven (`variant=solid|glass`, `backdrop=heavy`). Prefer tokens + `decoDivider`.
+* **Buttons:** prefer `Button` variants over ad-hoc classes; Cancel=`glass`, confirm=`primary|clay` where justified.
+* **Gold:** standardize on `--gold` via tokens; avoid `*gold-accent*` raw classes.
+* **Scrollbars:** do not globally hide; ensure stable gutters and visible thumbs in scroll containers.
+* **Dividers:** `ArtDecoDivider` is the primitive; `SectionSeparator` is a thin wrapper to avoid drift.
+* **Z-index/portal:** keep consistent overlay scale (toasts/drawers/modals). Define in tokens if needed.
+* **Fonts/backgrounds:** keep generated font pipeline; avoid hard asset paths.
+* **Data bindings:** keep shape parity with PROD where useful; UI remains token-first.

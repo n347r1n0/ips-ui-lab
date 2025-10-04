@@ -69,9 +69,7 @@ export function Home({ onOpenTournaments }) {
         onSelect={scrollTo}
         dock="br"    // пока фиксируем в правый-нижний
         stepDeg={40}
-        labelClassName="text-left"
-        labelClassName="text-sm"
-        labelClassName="px-2 py-1"
+        labelClassName="text-left text-sm px-2 py-1"
       />
 
     </div>

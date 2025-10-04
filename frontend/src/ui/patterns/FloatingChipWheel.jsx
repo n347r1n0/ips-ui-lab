@@ -1,73 +1,16 @@
 // frontend/src/ui/patterns/FloatingChipWheel.jsx
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 
-/**
- * FloatingChipWheel — «круговая фишка»-навигация (MVP, токен-драйв).
- *
- * ────────────────────────────────────────────────────────────────────
- * ПУБЛИЧНЫЕ ПРОПЫ (все опциональны, кроме items/activeId):
- *
- * items: Array<{ id: string, label: string, icon?: JSX, Icon?: ReactComponent }>
- *   Набор пунктов. Иконку можно передать:
- *     • как готовый JSX в поле icon, или
- *     • как компонент в поле Icon (мы сами поставим width/height).
- *
- * activeId: string
- *   Текущая активная секция (для подсветки и выравнивания).
- *
- * onSelect: (id: string) => void
- *   Колбэк по клику на иконку.
- *
- * dock: 'br' | 'bl' | 'tr' | 'tl'   (по умолчанию 'br')
- *   Угол «стыковки» круга к странице:
- *   br — снизу-справа, bl — снизу-слева, tr — сверху-справа, tl — сверху-слева.
- *
- * size: number  (по умолчанию 320)
- *   Диаметр круга в px. Влияет на физический размер «фишки».
- *
- * radius: number  (по умолчанию 120)
- *   Радиус «дорожки» иконок (расстояние от центра, px).
- *
- * centerAngle: number | undefined
- *   Угол (в градусах), где располагается **активная** иконка.
- *   Если не задан, берём дефолт для выбранного dock:
- *     br=225, bl=315, tr=135, tl=45  (центр видимой четверти).
- *
- * stepDeg: number | undefined
- *   Фиксированный шаг между иконками (в градусах).
- *   По умолчанию равномерное распределение: 360 / items.length.
- *   Полезно, если хотите плотнее (например, 45°) на видимой дуге.
- *
- * offset: { x: number, y: number }  (по умолчанию {x: 0, y: 0})
- *   Сдвиг центра «фишки» **внутрь** страницы (px).
- *   Положительные x/y — смещают от угла к центру экрана.
- *
- * iconSize: number  (по умолчанию 20)
- *   Размер глифа иконки (px).
- *
- * chipSize: number  (по умолчанию 40)
- *   Диаметр подложки под иконку (px).
- *
- * labelOffset: { x: number, y: number } (по умолчанию {x:0, y:0})
- *   Сдвиг **текста активной секции** от геометрического центра (px).
- *   Например, {x: 40, y: 20} — чуть вправо и вниз внутри круга.
- *
- * labelClassName: string
- *   Доп. классы для подписи в центре (можно увеличить шрифт/паддинги и т.д.).
- *
- * className: string
- *   Доп. классы для внешнего контейнера (если нужно).
- *
- * hideOnDesktop: boolean (по умолчанию true)
- *   Скрывать ли на ≥sm. Если false — будет видно везде.
- * ────────────────────────────────────────────────────────────────────
- *
- * Замечания:
- *  • Визуал завязан на токены: bg-цвета, бордеры и blur берём из tokens.css.
- *  • Компонент pointer-events отключает у обёртки и включает у интерактивных
- *    элементов, чтобы «фишка» не перекрывала клики по странице.
- */
+function normalizeDeg(d) {
+  let x = d;
+  while (x > 180) x -= 360;
+  while (x < -180) x += 360;
+  return x;
+}
+function wrapIndex(i, n) {
+  return ((i % n) + n) % n;
+}
 
 export function FloatingChipWheel({
   items = [],
@@ -75,88 +18,205 @@ export function FloatingChipWheel({
   onSelect,
   dock = 'br',
 
-  // ↓↓↓ РАЗМЕР КРУГА
-  size = 230,          // диаметр «фишки» (px) — влияет на style width/height контейнера
+  // размеры/геометрия
+  size = 230,
+  radius = 95,
+  centerAngle,
+  stepDeg,
+  offset = { x: -40, y: -25 },
 
-  // ↓↓↓ ГЕОМЕТРИЯ РАЗМЕЩЕНИЯ ИКОНОК
-  radius = 95,        // радиус дорожки иконок (px) — в translate(<radius>px)
-  centerAngle,         // явный угол активной иконки (deg). Если не задан — берём дефолт для dock
-  stepDeg,             // шаг между иконками (deg). Если не задан — равномерно 360/N
+  // графика
+  iconSize = 15,
+  chipSize = 15,
 
-  // ↓↓↓ СДВИГ ЦЕНТРА КРУГА ОТ УГЛА ВНУТРЬ ЭКРАНА
-  offset = { x: -40, y: -25 }, // px: положительные значения «толкают» круг к центру страницы
+  // подпись
+  labelOffset = { x: -20, y: -22 },
+  labelClassName = '',
 
-  // ↓↓↓ РАЗМЕРЫ ГРАФИКИ
-  iconSize = 15,       // размер глифа иконки (px) — применяется в renderIcon()
-  chipSize = 15,       // размер круглой подложки под иконку (px)
-
-  // ↓↓↓ ТЕКСТ ВНУТРИ КРУГА
-  labelOffset = { x: -20, y: -22 }, // позиция подписи относительно центра (px)
-  labelClassName = '',          // шрифт/паддинги/размер подписи
-
-  // ↓↓↓ ПРОЧЕЕ
-  className = '',
+  // поведение/прочее
   hideOnDesktop = true,
+  className = '',
+
+  // свайп (упрощённый, предсказуемый)
+  deadzoneDeg = 5,      // порог старта вращения (в градусах)
+  dragGain = 1.0,       // чувствительность вращения
+  showDragIndicator = true,
 }) {
   const clean = useMemo(() => items.filter(Boolean), [items]);
   if (clean.length === 0) return null;
 
-  // ── Индекс активного, шаг между иконками
   const activeIndex = Math.max(0, clean.findIndex(i => i.id === activeId));
-  const autoStep = 360 / clean.length;                // ← базовый равномерный шаг
-  const step = typeof stepDeg === 'number' ? stepDeg : autoStep; // ← кастомный шаг/авто
+  const autoStep = 360 / clean.length;
+  const step = typeof stepDeg === 'number' ? stepDeg : autoStep;
 
-  // ── Центр видимой дуги (куда попадает активная иконка)
-  const defaultCenter = {
-    br: 215, // правый-нижний ↘
-    bl: 325, // левый-нижний ↙
-    tr: 145, // правый-верхний ↗
-    tl: 35,  // левый-верхний ↖
-  }[dock] ?? 215;
+  const defaultCenter = { br: 215, bl: 325, tr: 145, tl: 35 }[dock] ?? 215;
+  const center = typeof centerAngle === 'number' ? centerAngle : defaultCenter;
 
-  const center = typeof centerAngle === 'number' ? centerAngle : defaultCenter; // ← УГОЛ АКТИВНОЙ
-  const angleFor = (i) => center + (i - activeIndex) * step; // ← формула расположения иконок
+  const angleFor = (i, extra = 0) => center + (i - activeIndex) * step + extra;
 
-  // ── Позиционирование круга у выбранного угла + сдвиг offset внутрь страницы
+  // позиционирование в углу + сдвиг внутрь
   const anchor = {
     br: { corner: 'bottom-0 right-0', tx:  1, ty:  1 },
     bl: { corner: 'bottom-0 left-0',  tx: -1, ty:  1 },
     tr: { corner: 'top-0 right-0',    tx:  1, ty: -1 },
     tl: { corner: 'top-0 left-0',     tx: -1, ty: -1 },
   }[dock];
-
-  // ↓↓↓ именно здесь задаётся смещение центра «фишки»
   const translate = `translate(calc(${anchor.tx * 50}% + ${anchor.tx * (offset?.x ?? 0)}px),
                                 calc(${anchor.ty * 50}% + ${anchor.ty * (offset?.y ?? 0)}px))`;
 
-  // ── Рендер иконки (поддержка JSX и компонентной формы)
+  // рендер иконки
   const renderIcon = (it) => {
     if (it.icon) {
       return React.cloneElement(it.icon, {
-        style: { width: iconSize, height: iconSize, ...(it.icon.props?.style || {}) }, // ← РАЗМЕР ИКОНОК
+        style: { width: iconSize, height: iconSize, ...(it.icon.props?.style || {}) },
         'aria-hidden': true,
       });
     }
-    if (it.Icon) {
-      return <it.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" />; // ← РАЗМЕР ИКОНОК
-    }
+    if (it.Icon) return <it.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" />;
     return null;
   };
+
+  // состояние свайпа
+  const rootRef = useRef(null);
+  const [angularOffsetDeg, setAngularOffsetDeg] = useState(0);
+  const rotatingRef = useRef(false);
+  const pointerDownRef = useRef(false);
+  const startAngleRef = useRef(0);
+  const lastAngleRef = useRef(0);
+
+  const getTouchAngleDeg = (x, y) => {
+    const root = rootRef.current;
+    if (!root) return 0;
+    const r = root.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    return Math.atan2(y - cy, x - cx) * (180 / Math.PI);
+  };
+
+  // «пончик» — зона для свайпа
+  const isInDonut = (x, y) => {
+    const root = rootRef.current;
+    if (!root) return false;
+    const r = root.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const dx = x - cx, dy = y - cy;
+    const dist = Math.hypot(dx, dy);
+    const R = size / 2;
+    return dist >= R * 0.35 && dist <= R * 0.98;
+  };
+
+  // снап к ближайшей секции
+  const snapToNearest = () => {
+    const n = clean.length;
+    if (n === 0) return;
+
+    const stepsFloat = angularOffsetDeg / step;
+    const steps = Math.round(stepsFloat);
+    if (steps !== 0) {
+      const targetIdx = wrapIndex(activeIndex - steps, n);
+      const target = clean[targetIdx];
+      if (target?.id) onSelect?.(target.id);
+    }
+    setAngularOffsetDeg(0);
+  };
+
+  // слушатели — только на корневом круге, без глобалей
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const onPointerDown = (e) => {
+      // мгновенно блокируем нативный скролл на самом колесе
+      // (touch-action: none уже стоит на контейнере, но preventDefault усиливает)
+      if (!isInDonut(e.clientX, e.clientY)) return;
+
+      pointerDownRef.current = true;
+      rotatingRef.current = false;
+
+      const a = getTouchAngleDeg(e.clientX, e.clientY);
+      startAngleRef.current = a;
+      lastAngleRef.current = a;
+
+      // важно: остановить нативный скролл до его старта
+      e.preventDefault?.();
+      try { root.setPointerCapture?.(e.pointerId); } catch {}
+    };
+
+    const onPointerMove = (e) => {
+      if (!pointerDownRef.current) return;
+
+      const ang = getTouchAngleDeg(e.clientX, e.clientY);
+      const fromStart = normalizeDeg(ang - startAngleRef.current);
+
+      if (!rotatingRef.current) {
+        if (Math.abs(fromStart) >= deadzoneDeg) {
+          rotatingRef.current = true;
+        } else {
+          return; // ещё dead-zone — даём шанс клику
+        }
+      }
+
+      let d = normalizeDeg(ang - lastAngleRef.current);
+      const add = d * dragGain;
+      setAngularOffsetDeg(prev => prev + add);
+      lastAngleRef.current = ang;
+
+      // блокируем прокрутку уверенно, без Intervention (touch-action: none помогает)
+      e.preventDefault?.();
+    };
+
+    const onPointerUp = () => {
+      if (rotatingRef.current) {
+        snapToNearest();
+      }
+      pointerDownRef.current = false;
+      rotatingRef.current = false;
+      try { root.releasePointerCapture?.(); } catch {}
+    };
+
+    const onPointerCancel = () => {
+      pointerDownRef.current = false;
+      rotatingRef.current = false;
+      try { root.releasePointerCapture?.(); } catch {}
+      setAngularOffsetDeg(0); // мягкий откат
+    };
+
+    root.addEventListener('pointerdown', onPointerDown, { passive: false });
+    root.addEventListener('pointermove', onPointerMove, { passive: false });
+    root.addEventListener('pointerup', onPointerUp, { passive: false });
+    root.addEventListener('pointercancel', onPointerCancel, { passive: false });
+
+    return () => {
+      root.removeEventListener('pointerdown', onPointerDown);
+      root.removeEventListener('pointermove', onPointerMove);
+      root.removeEventListener('pointerup', onPointerUp);
+      root.removeEventListener('pointercancel', onPointerCancel);
+    };
+  }, [deadzoneDeg, dragGain, step, clean.length, activeIndex, angularOffsetDeg]);
 
   const visibilityClass = hideOnDesktop ? 'sm:hidden' : '';
 
   return (
     <div
+      ref={rootRef}
       className={twMerge(
-        'fixed z-50 pointer-events-none select-none',
+        'fixed z-50 select-none pointer-events-auto',
         visibilityClass,
         anchor.corner,
         className
       )}
-      style={{ width: size, height: size, transform: translate }} // ← РАЗМЕР КРУГА + СМЕЩЕНИЕ
+      style={{
+        width: size,
+        height: size,
+        transform: translate,
+        // критично: **навсегда** запрещаем нативный пан/зум на колесе
+        touchAction: 'none',
+        // не отдаём скролл за пределы
+        overscrollBehavior: 'contain',
+      }}
       aria-hidden={false}
     >
-      {/* «Фишка»: стеклянная поверхность */}
       <div
         className={twMerge(
           'relative rounded-full',
@@ -164,30 +224,30 @@ export function FloatingChipWheel({
           'border border-[--glass-border]',
           'shadow-[var(--shadow-m)]'
         )}
-        style={{ width: size, height: size }} // ← РАЗМЕР КРУГА
+        style={{ width: size, height: size }}
       >
-        {/* Центральная подпись (активная секция) */}
+        {/* подпись активной секции */}
         <div
-          className="absolute left-1/2 top-1/2" // ставим в геом. центр…
+          className="absolute left-1/2 top-1/2"
           style={{
-            transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`, // …и смещаем labelOffset'ом
-            pointerEvents: 'auto',
+            transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
+            pointerEvents: 'none',
           }}
         >
           <div
             className={twMerge(
               'text-center px-4 py-2 rounded-full',
               'bg-white/10 border border-white/15 text-[--fg-strong]',
-              labelClassName // ← СТИЛИ ТЕКСТА/РАЗМЕР ШРИФТА
+              labelClassName
             )}
           >
             {clean[activeIndex]?.label}
           </div>
         </div>
 
-        {/* Иконки по окружности */}
+        {/* иконки */}
         {clean.map((it, i) => {
-          const a = angleFor(i);                      // ← УГОЛ КОНКРЕТНОЙ ИКОПКИ
+          const a = angleFor(i, angularOffsetDeg);
           const isActive = i === activeIndex;
           const near =
             Math.abs(i - activeIndex) === 1 ||
@@ -200,14 +260,14 @@ export function FloatingChipWheel({
               onClick={() => onSelect?.(it.id)}
               className={twMerge(
                 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-                'rounded-full p-2',
-                'bg-white/10 border border-white/15',
-                'transition-all duration-200',
+                'rounded-full bg-white/10 border border-white/15',
+                'transition-all duration-150',
                 isActive ? 'scale-110 shadow-[var(--shadow-s)]' : 'opacity-80'
               )}
               style={{
-                // ↓↓↓ ВАЖНО: здесь используется radius (глубина), а также угол a
                 transform: `translate(-50%, -50%) rotate(${a}deg) translate(${radius}px) rotate(${-a}deg)`,
+                width: chipSize,
+                height: chipSize,
                 pointerEvents: 'auto',
               }}
               aria-current={isActive ? 'page' : undefined}
@@ -216,16 +276,32 @@ export function FloatingChipWheel({
             >
               <div
                 className={twMerge(
-                  'grid place-items-center rounded-full',
+                  'w-full h-full grid place-items-center rounded-full',
                   isActive ? 'bg-white/20' : near ? 'bg-white/10' : 'bg-white/5'
                 )}
-                style={{ width: chipSize, height: chipSize }} // ← РАЗМЕР ЧИПА ПОД ИКОНКУ
               >
                 {renderIcon(it)}
               </div>
             </button>
           );
         })}
+
+        {/* индикатор дуги при реальном вращении */}
+        {showDragIndicator && rotatingRef.current && (
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              background: `conic-gradient(from ${center - 45}deg,
+                transparent,
+                rgba(212,175,55,0.15) ${center - 20}deg,
+                rgba(212,175,55,0.25) ${center}deg,
+                rgba(212,175,55,0.15) ${center + 20}deg,
+                transparent)`,
+              pointerEvents: 'none',
+            }}
+            aria-hidden
+          />
+        )}
       </div>
     </div>
   );

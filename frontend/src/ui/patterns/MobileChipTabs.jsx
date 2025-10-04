@@ -7,8 +7,8 @@ import { twMerge } from 'tailwind-merge';
  * MobileChipTabs — нижняя навигационная лента для мобильных.
  * props:
  *  - items: [{ id: 'calendar', label: 'Календарь', icon?: ReactNode }]
- *  - activeId: string        // текущая секция (из useActiveSection)
- *  - onTabClick?: (id) => void
+ *  - activeId: string           // текущая секция (из useSectionNav)
+ *  - onTabClick?: (id) => void  // обычно: scrollTo из useSectionNav
  */
 export function MobileChipTabs({ items = [], activeId, onTabClick }) {
   const scrollerRef = useRef(null);
