@@ -3,8 +3,17 @@ import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 
 /**
- * FloatingChipWheel — круговая навигация с дуговым свайпом, снапом и "визуальной правдой".
- * Устойчивый «шов»: окно строится через floor/frac, актив выбирается с гистерезисом.
+ * FloatingChipWheel — круговая навигация с дуговым свайпом и снапом.
+ *
+ * ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ:
+ *  • Во время жеста «правда» = snapCandidateRef (то, что на экране).
+ *  • При отпускании «правда» коммитится в committedStepRef и колесо лишь доснапивается.
+ *  • Никаких повторных пересчётов «что выбрать» после отпускания — берём то, что уже показано.
+ *  • Внешняя синхронизация игнорируется пока идёт наше взаимодействие/снап/небольшая пауза.
+ *
+ * Геометрия:
+ *  • Логика в шагах: stepF — дробный логический шаг (без нормализации).
+ *  • Рендер: angle = center + (logicalStep - stepF) * stepDeg.
  */
 
 export function FloatingChipWheel({
@@ -28,168 +37,131 @@ export function FloatingChipWheel({
 
   // жесты/поведение
   enableSwipe = true,
-  deadzonePx = 6,
+  deadzonePx = 6,           // в градусах — порог для старта драга
   snapDurationMs = 160,
   showDragIndicator = true,
-
-  // тонкая настройка «шва»
-  hysteresis = 0.08, // 0..0.2 — сколько «сдвигать» порог 0.5 шага в сторону последнего направления
 }) {
   const clean = useMemo(() => items.filter(Boolean), [items]);
   const N = clean.length;
   if (N === 0) return null;
 
+  // Шаг в градусах
   const autoStep = 360 / N;
   const step = typeof stepDeg === 'number' ? stepDeg : autoStep;
+
+  // Центральный угол
   const defaultCenter = { br: 215, bl: 325, tr: 145, tl: 35 }[dock] ?? 215;
   const center = typeof centerAngle === 'number' ? centerAngle : defaultCenter;
 
+  // Позиционирование виджета
   const anchor = {
     br: { corner: 'bottom-0 right-0', tx: +1, ty: +1 },
     bl: { corner: 'bottom-0 left-0',  tx: -1, ty: +1 },
     tr: { corner: 'top-0 right-0',    tx: +1, ty: -1 },
     tl: { corner: 'top-0 left-0',     tx: -1, ty: -1 },
   }[dock];
+
   const translate = `translate(calc(${anchor.tx * 50}% + ${anchor.tx * (offset?.x ?? 0)}px),
                                 calc(${anchor.ty * 50}% + ${anchor.ty * (offset?.y ?? 0)}px))`;
 
-  const normDeg = (d) => {
-    let x = ((d + 180) % 360 + 360) % 360 - 180;
-    return x === -180 ? 180 : x;
-  };
-  const shortestDelta = (to, from) => normDeg(to - from);
-  const snapToStep = (deg) => Math.round(deg / step) * step;
+  // ───────────────────────────────────────────────────────────────────────────────
+  // Источник правды — stepF (дробный логический шаг)
+  const [stepFState, setStepFState] = useState(0);
+  const stepF = useRef(0);
+  const setStepF = (v) => { stepF.current = v; setStepFState(v); };
 
-  // rotation — единственный источник правды
-  const [rotation, setRotation] = useState(0);
-  const rotRef = useRef(0);
-  const setRot = (v) => { rotRef.current = v; setRotation(v); };
+  // Кандидат (то, что пользователь видит во время драга) и коммит после отпускания
+  const snapCandidateRef = useRef(0);      // ближайший целочисленный шаг «под пальцем»
+  const committedStepRef = useRef(null);   // зафиксированный шаг на время снапа
 
-  // направление последнего движения (для гистерезиса): -1 | 0 | +1
-  const lastDirRef = useRef(0);
-
-  // lock внешней синхры на время локального снапа
-  const [locked, setLocked] = useState(false);
-  const lockTargetIdRef = useRef(null);
-  const lockTimerRef = useRef(null);
-
-  // рендер иконки
-  const renderIcon = (it) => {
-    if (it.icon) {
-      return React.cloneElement(it.icon, {
-        style: { width: iconSize, height: iconSize, ...(it.icon.props?.style || {}) },
-        'aria-hidden': true
-      });
-    }
-    if (it.Icon) return <it.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" />;
-    return null;
-  };
-
-  // анимация rotation → target кратчайшей дугой
-  const rafRef = useRef(null);
-
-
-//  const animateRotationTo = (targetDeg, durMs, onDone) => {
-//    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-//    const start = rotRef.current;
-//    const delta = shortestDelta(targetDeg, start);
-//
-//    if (Math.abs(delta) < 0.1 || durMs <= 0) {
-//      setRot(normDeg(targetDeg));
-//      onDone?.();
-//      return;
-//    }
-//
-//    const t0 = performance.now();
-//    const tick = (t) => {
-//      const p = Math.min(1, (t - t0) / durMs);
-//      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
-//      setRot(normDeg(start + delta * eased));
-//      if (p < 1) {
-//        rafRef.current = requestAnimationFrame(tick);
-//      } else {
-//        rafRef.current = null;
-//        setRot(normDeg(targetDeg));
-//        onDone?.();
-//      }
-//    };
-//    rafRef.current = requestAnimationFrame(tick);
-//  };
-//
-
-  const animateRotationTo = (targetDeg, durMs, onDone) => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    const start = rotRef.current;
-    const delta = targetDeg - start;               // без «кратчайшей дуги»
-    if (Math.abs(delta) < 0.1 || durMs <= 0) {
-      setRot(targetDeg); onDone?.(); return;
-    }
-    const t0 = performance.now();
-    const tick = (t) => {
-      const p = Math.min(1, (t - t0) / durMs);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setRot(start + delta * eased);               // без нормализации
-      if (p < 1) rafRef.current = requestAnimationFrame(tick);
-      else { rafRef.current = null; setRot(targetDeg); onDone?.(); }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-  };
-
-  // устойчивый nearest с гистерезисом
-  const nearestStepWithHysteresis = (stepFloat, dir) => {
-    // обычный порог 0.5, «сдвигаем» на hysteresis в сторону dir
-    const bias = (typeof dir === 'number' ? dir : 0) * hysteresis;
-    return Math.floor(stepFloat + 0.5 + bias);
-  };
-
-  // клики по иконке
-
-  const selectIndex = (targetIdx) => {
-    // найдём ближайший vitок к текущему дробному шагу
-    const stepFloat = rotRef.current / step;
-    // кандидаты targetIdx + k*N, k ∈ {-1,0,+1}
-    let best = targetIdx;
-    let bestDist = Infinity;
-    for (let k = -1; k <= 1; k++) {
-      const cand = targetIdx + k * N;
-      const dist = Math.abs(cand - stepFloat);
-      if (dist < bestDist) { 
-        bestDist = dist; 
-        best = cand; 
-      }
-    }
-    
-    // Если мы очень близко к целевой позиции (< 0.1 шага), 
-    // принудительно выбираем следующий виток в положительном направлении
-    if (bestDist < 0.1) {
-      best = targetIdx + N; // следующий виток вперед
-    }
-    
-    const targetRot = best * step;
-
-    setLocked(true);
-    const id = clean[((targetIdx % N) + N) % N]?.id || null;
-    lockTargetIdRef.current = id;
-    if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
-    lockTimerRef.current = setTimeout(() => {
-      setLocked(false);
-      lockTargetIdRef.current = null;
-    }, 1000);
-
-    // Вызываем onSelect сразу для синхронизации страницы и колеса
-    if (id && id !== activeId) onSelect?.(id);
-    
-    animateRotationTo(targetRot, snapDurationMs);
-  };
-
-  // жесты
+  // Ввод/анимация
   const rootRef = useRef(null);
   const draggingRef = useRef(false);
   const startedRef = useRef(false);
   const startAngleRef = useRef(0);
-  const startRotRef = useRef(0);
+  const startStepRef = useRef(0);
 
-  // page scroll lock
+  const rafRef = useRef(null);
+  const [animating, setAnimating] = useState(false);
+
+  // Лок внешней синхры на ожидаемый id + «settle»-пауза после снапа
+  const lockTargetIdRef = useRef(null);
+  const lockTimerRef = useRef(null);
+  const interactionLockRef = useRef(false);
+  const interactionTimerRef = useRef(null);
+  const settleMs = 250; // пауза, чтобы IO не «щёлкал» на шве
+
+  // Единая функция дискретизации шага для подписи/подсветки
+  const pickStep = (s) => Math.round(s);
+
+  // ───────────────────────────────────────────────────────────────────────────────
+  // Анимация к целевому логическому шагу
+  const animateStepTo = (targetStep, durMs, onDone) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
+    const start = stepF.current;
+    const delta = targetStep - start;
+
+    if (Math.abs(delta) < 1e-3 || durMs <= 0) {
+      setStepF(targetStep);
+      onDone?.();
+      return;
+    }
+
+    setAnimating(true);
+    const t0 = performance.now();
+
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / durMs);
+      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+      setStepF(start + delta * eased);
+
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        setStepF(targetStep);
+        setAnimating(false);
+        onDone?.();
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(tick);
+  };
+
+  // Снап к указанному ВИТКУ (logicalStep): коммит + внешний скролл + визуальный доезд
+  const snapTo = (logicalStep) => {
+    // 1) Коммит визуальной правды (то, что увидел пользователь)
+    committedStepRef.current = logicalStep;
+
+    // 2) Жёстко локируем внешнюю синхру на нужный id
+    const id = clean[((logicalStep % N) + N) % N]?.id || null;
+    lockTargetIdRef.current = id;
+    if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+    lockTimerRef.current = setTimeout(() => {
+      lockTargetIdRef.current = null;
+      lockTimerRef.current = null;
+    }, 1200);
+
+    // 3) Лочим внешнюю обратную связь на время анимации + settle
+    interactionLockRef.current = true;
+    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+
+    // 4) Сразу говорим странице, куда скроллить (наружу)
+    if (id && id !== activeId) onSelect?.(id);
+
+    // 5) Колесо визуально доснапивается к коммиту
+    animateStepTo(logicalStep, snapDurationMs, () => {
+      interactionTimerRef.current = setTimeout(() => {
+        interactionLockRef.current = false;
+        committedStepRef.current = null; // отпускаем «заморозку»
+        interactionTimerRef.current = null;
+      }, settleMs);
+    });
+  };
+
+  // ───────────────────────────────────────────────────────────────────────────────
+  // Блокировка скролла страницы при перетаскивании
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -197,6 +169,7 @@ export function FloatingChipWheel({
     return () => { root.style.touchAction = ''; };
   }, []);
 
+  // Жесты
   useEffect(() => {
     if (!enableSwipe) return;
     const root = rootRef.current;
@@ -216,8 +189,9 @@ export function FloatingChipWheel({
     };
 
     const onDown = (e) => {
-      if (locked) return;
+      if (animating) return;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
       root.setPointerCapture?.(e.pointerId);
       draggingRef.current = true;
       startedRef.current = false;
@@ -225,37 +199,42 @@ export function FloatingChipWheel({
       const rect = root.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
+
       startAngleRef.current = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
-      startRotRef.current = rotRef.current;
-      lastDirRef.current = 0;
+      startStepRef.current = stepF.current;
+
+      // начальный кандидат = то, что видно сейчас
+      snapCandidateRef.current = pickStep(stepF.current);
     };
 
     const onMove = (e) => {
-      if (!draggingRef.current || locked) return;
+      if (!draggingRef.current || animating) return;
 
       const rect = root.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
       const angNow = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
 
-      let delta = angNow - startAngleRef.current;
-      if (delta > 180) delta -= 360;
-      if (delta < -180) delta += 360;
-      delta = -delta; // по часовой — вперёд по ленте
+      let deltaDeg = angNow - startAngleRef.current;
+      if (deltaDeg > 180) deltaDeg -= 360;
+      if (deltaDeg < -180) deltaDeg += 360;
+
+      // по часовой — вперёд по ленте
+      deltaDeg = -deltaDeg;
 
       if (!startedRef.current) {
-        if (Math.abs(delta) < deadzonePx) return;
+        if (Math.abs(deltaDeg) < deadzonePx) return;
         startedRef.current = true;
         lockBody();
       }
 
       e.preventDefault?.();
 
-      // направление движения по «ленте»
-      lastDirRef.current = Math.sign(delta || 0);
+      const deltaStep = deltaDeg / step;
+      const nextStepF = startStepRef.current + deltaStep;
 
-//      setRot(normDeg(startRotRef.current + delta));
-      setRot(startRotRef.current + delta);
+      setStepF(nextStepF);
+      snapCandidateRef.current = pickStep(nextStepF); // это и есть «что видит пользователь»
     };
 
     const onEnd = () => {
@@ -263,31 +242,12 @@ export function FloatingChipWheel({
       draggingRef.current = false;
 
       if (startedRef.current) {
-        // дробный шаг в момент отпускания
-        const stepFloat = rotRef.current / step;
-        // целевой шаг — по устойчивой формуле
-        const targetStep = nearestStepWithHysteresis(stepFloat, lastDirRef.current);
-        const targetRot = targetStep * step;
-
-        // lock до прихода нужного activeId
-        setLocked(true);
-        const finalIdx = ((targetStep % N) + N) % N;
-        const id = clean[finalIdx]?.id || null;
-        lockTargetIdRef.current = id;
-
-        if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
-        lockTimerRef.current = setTimeout(() => {
-          setLocked(false);
-          lockTargetIdRef.current = null;
-        }, 1000);
-
-        animateRotationTo(targetRot, snapDurationMs, () => {
-          if (id && id !== activeId) onSelect?.(id);
-        });
+        // НИКАКИХ пересчётов: берём то, что уже было показано пользователю
+        const targetStep = snapCandidateRef.current;
+        snapTo(targetStep);
       }
 
       startedRef.current = false;
-      lastDirRef.current = 0; // сброс направления
       unlockBody();
     };
 
@@ -304,70 +264,90 @@ export function FloatingChipWheel({
       root.removeEventListener('pointercancel', onEnd);
       root.removeEventListener('pointerleave', onEnd);
     };
-  }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, locked, hysteresis]);
+  }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, animating]);
 
-  // внешняя синхра — только если не locked/не тянем/нет анимации/нет tap-target
+  // ───────────────────────────────────────────────────────────────────────────────
+  // Внешняя синхронизация с activeId:
+  // • Полностью игнорим пока interactionLockRef/animating активны.
+  // • Если ждём конкретный id — обрабатываем только его подтверждение.
   useEffect(() => {
-    if (locked || rafRef.current || lockTargetIdRef.current) return;
-    const targetIdx = Math.max(0, clean.findIndex(it => it.id === activeId));
+    if (interactionLockRef.current || animating) return;
+
+    if (lockTargetIdRef.current) {
+      if (activeId === lockTargetIdRef.current) {
+        // подтверждение получено — снимаем лок
+        lockTargetIdRef.current = null;
+        if (lockTimerRef.current) { clearTimeout(lockTimerRef.current); lockTimerRef.current = null; }
+      } else {
+        return; // всё ещё ждём наш id
+      }
+    }
+
+    const targetIdx = clean.findIndex(it => it.id === activeId);
     if (targetIdx < 0) return;
 
-    // целевой виток — ближайший к текущему дробному
-    const stepFloat = rotRef.current / step;
+    // Подводим колесо к ближайшему витку этого индекса
+    const s = stepF.current;
     let best = targetIdx;
     let bestDist = Infinity;
     for (let k = -1; k <= 1; k++) {
       const cand = targetIdx + k * N;
-      const dist = Math.abs(cand - stepFloat);
+      const dist = Math.abs(cand - s);
       if (dist < bestDist) { bestDist = dist; best = cand; }
     }
-    const targetRot = best * step;
-    if (Math.abs(shortestDelta(targetRot, rotRef.current)) > 0.5) {
-      animateRotationTo(targetRot, snapDurationMs);
-    }
-  }, [activeId, clean, step, snapDurationMs, locked]);
 
-  // если залочены и пришёл наш id — снимаем лок
-  useEffect(() => {
-    if (!locked) return;
-    if (lockTargetIdRef.current && activeId === lockTargetIdRef.current) {
-      setLocked(false);
-      lockTargetIdRef.current = null;
-      if (lockTimerRef.current) { clearTimeout(lockTimerRef.current); lockTimerRef.current = null; }
+    if (bestDist > 1e-3) {
+      animateStepTo(best, snapDurationMs);
+      // На время внешнего автоподвода НЕ коммитим — коммит только из ввода пользователя
     }
-  }, [activeId, locked]);
+  }, [activeId, clean, N, snapDurationMs, animating]);
 
+  // Очистка
   useEffect(() => () => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
+    if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
   }, []);
 
-  // ОКНО ИКОНОК (бесшовно): floor & frac
+  // ───────────────────────────────────────────────────────────────────────────────
+  // Окно иконок (бесшовно) через floor в пространстве шагов
   const visibleIcons = useMemo(() => {
-    const stepFloat = rotRef.current / step;
-    const base = Math.floor(stepFloat);
-    const frac = stepFloat - base; // [0..1)
+    const base = Math.floor(stepF.current);
     const arr = [];
 
     for (let offset = -2; offset <= 2; offset++) {
       const logicalStep = base + offset;
       const idx = ((logicalStep % N) + N) % N;
-      const angle = center + (offset - frac) * step; // = center + (logicalStep - stepFloat)*step
+      const angle = center + (logicalStep - stepF.current) * step; // == center + (offset - frac)*step
       arr.push({
         key: `${clean[idx].id}:${logicalStep}`,
         idx,
         angle,
+        logicalStep,
       });
     }
     return arr;
-  }, [rotation, step, center, N, clean]);
+  }, [stepFState, step, center, N, clean]);
 
-  // ТЕКУЩИЙ АКТИВ по устойчивой формуле (для подписи/подсветки)
+  // Текущий актив: приоритет — коммит, затем кандидат, затем ближайший к stepF
   const currentIndex = useMemo(() => {
-    const stepFloat = rotRef.current / step;
-    const nearest = nearestStepWithHysteresis(stepFloat, lastDirRef.current);
-    return ((nearest % N) + N) % N;
-  }, [rotation, step, N]);
+    const refStep =
+      (committedStepRef.current !== null)
+        ? committedStepRef.current
+        : (draggingRef.current ? snapCandidateRef.current : pickStep(stepF.current));
+    return ((refStep % N) + N) % N;
+  }, [stepFState, N]);
+
+  const renderIcon = (it) => {
+    if (it.icon) {
+      return React.cloneElement(it.icon, {
+        style: { width: iconSize, height: iconSize, ...(it.icon.props?.style || {}) },
+        'aria-hidden': true,
+      });
+    }
+    if (it.Icon) return <it.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" />;
+    return null;
+  };
 
   const visibilityClass = hideOnDesktop ? 'sm:hidden' : '';
 
@@ -392,7 +372,7 @@ export function FloatingChipWheel({
         )}
         style={{ width: size, height: size }}
       >
-        {/* Подпись — по устойчивому currentIndex */}
+        {/* Подпись — читает коммит/кандидат/nearest в указанном порядке */}
         <div
           className="absolute left-1/2 top-1/2"
           style={{
@@ -412,13 +392,13 @@ export function FloatingChipWheel({
         </div>
 
         {/* Иконки — бесшовная лента */}
-        {visibleIcons.map(({ key, idx, angle }) => {
+        {visibleIcons.map(({ key, idx, angle, logicalStep }) => {
           const isActive = idx === currentIndex;
           return (
             <button
               key={key}
               type="button"
-              onClick={() => { if (!locked) selectIndex(idx); }}
+              onClick={() => { if (!animating && !draggingRef.current) snapTo(logicalStep); }}
               className={twMerge(
                 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
                 'rounded-full',
