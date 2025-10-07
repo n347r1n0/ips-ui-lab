@@ -16,7 +16,7 @@ export function FloatingChipWheel({
 
   // геометрия/визуал
   size = 230,
-  radius = 95,
+  radius = 102,
   centerAngle,
   stepDeg,
   offset = { x: -40, y: -25 },
