@@ -69,6 +69,12 @@ export function Home({ onOpenTournaments }) {
         onSelect={scrollTo}
         dock="br"    // пока фиксируем в правый-нижний
         stepDeg={40}
+        skin="poker"
+        skinProps={{
+          rimWidth: 26,
+          gapDeg: 0.8,
+          split: 1,            // чёрный/красный по очереди
+        }}
         labelClassName="text-left text-sm px-2 py-1"
       />
 
