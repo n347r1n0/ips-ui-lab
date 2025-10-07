@@ -87,29 +87,50 @@ export function FloatingChipWheel({
 
   // анимация rotation → target кратчайшей дугой
   const rafRef = useRef(null);
+
+
+//  const animateRotationTo = (targetDeg, durMs, onDone) => {
+//    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+//    const start = rotRef.current;
+//    const delta = shortestDelta(targetDeg, start);
+//
+//    if (Math.abs(delta) < 0.1 || durMs <= 0) {
+//      setRot(normDeg(targetDeg));
+//      onDone?.();
+//      return;
+//    }
+//
+//    const t0 = performance.now();
+//    const tick = (t) => {
+//      const p = Math.min(1, (t - t0) / durMs);
+//      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
+//      setRot(normDeg(start + delta * eased));
+//      if (p < 1) {
+//        rafRef.current = requestAnimationFrame(tick);
+//      } else {
+//        rafRef.current = null;
+//        setRot(normDeg(targetDeg));
+//        onDone?.();
+//      }
+//    };
+//    rafRef.current = requestAnimationFrame(tick);
+//  };
+//
+
   const animateRotationTo = (targetDeg, durMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const start = rotRef.current;
-    const delta = shortestDelta(targetDeg, start);
-
+    const delta = targetDeg - start;               // без «кратчайшей дуги»
     if (Math.abs(delta) < 0.1 || durMs <= 0) {
-      setRot(normDeg(targetDeg));
-      onDone?.();
-      return;
+      setRot(targetDeg); onDone?.(); return;
     }
-
     const t0 = performance.now();
     const tick = (t) => {
       const p = Math.min(1, (t - t0) / durMs);
-      const eased = 1 - Math.pow(1 - p, 3); // ease-out cubic
-      setRot(normDeg(start + delta * eased));
-      if (p < 1) {
-        rafRef.current = requestAnimationFrame(tick);
-      } else {
-        rafRef.current = null;
-        setRot(normDeg(targetDeg));
-        onDone?.();
-      }
+      const eased = 1 - Math.pow(1 - p, 3);
+      setRot(start + delta * eased);               // без нормализации
+      if (p < 1) rafRef.current = requestAnimationFrame(tick);
+      else { rafRef.current = null; setRot(targetDeg); onDone?.(); }
     };
     rafRef.current = requestAnimationFrame(tick);
   };
@@ -132,8 +153,18 @@ export function FloatingChipWheel({
     for (let k = -1; k <= 1; k++) {
       const cand = targetIdx + k * N;
       const dist = Math.abs(cand - stepFloat);
-      if (dist < bestDist) { bestDist = dist; best = cand; }
+      if (dist < bestDist) { 
+        bestDist = dist; 
+        best = cand; 
+      }
     }
+    
+    // Если мы очень близко к целевой позиции (< 0.1 шага), 
+    // принудительно выбираем следующий виток в положительном направлении
+    if (bestDist < 0.1) {
+      best = targetIdx + N; // следующий виток вперед
+    }
+    
     const targetRot = best * step;
 
     setLocked(true);
@@ -145,9 +176,10 @@ export function FloatingChipWheel({
       lockTargetIdRef.current = null;
     }, 1000);
 
-    animateRotationTo(targetRot, snapDurationMs, () => {
-      if (id && id !== activeId) onSelect?.(id);
-    });
+    // Вызываем onSelect сразу для синхронизации страницы и колеса
+    if (id && id !== activeId) onSelect?.(id);
+    
+    animateRotationTo(targetRot, snapDurationMs);
   };
 
   // жесты
@@ -222,7 +254,8 @@ export function FloatingChipWheel({
       // направление движения по «ленте»
       lastDirRef.current = Math.sign(delta || 0);
 
-      setRot(normDeg(startRotRef.current + delta));
+//      setRot(normDeg(startRotRef.current + delta));
+      setRot(startRotRef.current + delta);
     };
 
     const onEnd = () => {
@@ -273,9 +306,9 @@ export function FloatingChipWheel({
     };
   }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, locked, hysteresis]);
 
-  // внешняя синхра — только если не locked/не тянем/нет анимации
+  // внешняя синхра — только если не locked/не тянем/нет анимации/нет tap-target
   useEffect(() => {
-    if (locked || rafRef.current) return;
+    if (locked || rafRef.current || lockTargetIdRef.current) return;
     const targetIdx = Math.max(0, clean.findIndex(it => it.id === activeId));
     if (targetIdx < 0) return;
 

@@ -1,3 +1,5 @@
+// frontend/src/ui/patterns/SectionAnchor.jsx
+
 import React from 'react';
 
 /**
