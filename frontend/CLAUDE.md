@@ -31,7 +31,8 @@ frontend/src
 │  ├─feedback/
 │  │  ├─ Spinner.jsx  Skeleton*.jsx  EmptyState.jsx  ErrorState.jsx LoadingOverlay.jsx
 │  ├─ patterns/                # Complex, reusable UX patterns (MobileChipTabs, FloatingChipWheel, SectionAnchor)
-│  └─ navigation/              # Navigation-specific data/logic (e.g., sections.js)
+│  ├─ navigation/              # Navigation-specific data/logic (e.g., sections.js)
+│  └─ skins/                   # Visual skins for components (e.g., wheels/pokerSkin.jsx)
 ├─ hooks/
 │  └─ useSectionNav.js         # Hook for scroll-spy navigation on Home page
 ├─ demo/tournaments/
@@ -104,6 +105,21 @@ import { Button } from '@/ui/primitives/Button'
 * **Mobile Navigation Patterns:**
   `MobileChipTabs` (linear strip) and `FloatingChipWheel` (circular chip). Both consume `SECTIONS` and sync with `useSectionNav`.
 
+* **FloatingChipWheel Advanced Features:**
+  - **Stable gesture system** with single source of truth (`stepF` - fractional logical step)
+  - **Visual truth architecture**: `committedStepRef` > `snapCandidateRef` > `pickStep(stepF)` hierarchy
+  - **Interaction locking** to prevent external sync conflicts during gestures/snaps
+  - **Skin system** with `skin` prop and `skinProps` for visual customization
+  - **Phase-stable rendering** using `phase0` for consistent color patterns across rotations
+  - **Wrap-safe geometry** for seamless circular rendering at boundaries
+
+* **Skin Architecture:**
+  - `beforeIcons(geometry, props)` - renders background layers
+  - `afterIcons(geometry, props)` - renders overlay effects  
+  - `CenterLabelWrap(geometry, props, children)` - customizes label container
+  - `decorateIcon(node, context)` - decorates individual icons
+  - Skins are pure rendering functions, don't interfere with gesture logic
+
 **Minimal rules:**
 
 * For large PROD-like modals: `<Modal variant="solid" backdrop="heavy" …>`.
@@ -132,6 +148,7 @@ import { Button } from '@/ui/primitives/Button'
 * Fine-tune `Modal` (solid vs glass, backdrop, dividers, sticky slots).
 * Polish buttons (primary/ghost/glass/clay) and their roles in context.
 * Extend small primitives (Textarea/Checkbox/Radio/Switch) — in the spirit of Input/Select.
+* Develop visual skins for components (e.g., poker-themed FloatingChipWheel).
 
 ---
 
@@ -142,7 +159,13 @@ import { Button } from '@/ui/primitives/Button'
 * Modal: `Body` uses `overflow-y:auto; min-height:0; [scrollbar-gutter:stable both-edges]`.
 * Cancel = `glass`; dangerous actions = `danger`; primary/“premium” — `primary` or `clay` per task.
 * Navigation (Home) pulls sections from **one place**: `ui/navigation/sections.js`; `useSectionNav` + `SectionAnchor` control `activeId/scrollTo`. `MobileChipTabs` and `FloatingChipWheel` consume the same data.
-* **FloatingChipWheel (MVP)**: visual/geometric tuning via props (`size`, `radius`, `centerAngle`, `stepDeg`, `offset`, `iconSize`, `chipSize`, `labelOffset`, `labelClassName`); tap/click changes active item with synced icon + label; hidden on desktop by default (`sm:hidden`) unless explicitly enabled.
+* **FloatingChipWheel (Production-Ready)**: 
+  - Visual/geometric tuning via props (`size`, `radius`, `centerAngle`, `stepDeg`, `offset`, `iconSize`, `chipSize`, `labelOffset`, `labelClassName`)
+  - **Stable gesture system** with proper interaction locking and external sync prevention
+  - **Skin support** via `skin` prop (e.g., `'glass'`, `'poker'`) with `skinProps` customization
+  - **Phase-consistent rendering** ensuring color patterns don't flicker during rotation
+  - **Seamless circular geometry** with proper boundary handling and wrap-safe calculations
+  - Tap/swipe changes active item with synced icon + label; hidden on desktop by default (`sm:hidden`)
 * No edits to configs/dependencies/DB. Imports via `@`.
 
 ---
@@ -180,3 +203,4 @@ Formulate 1–2 options, pick the minimal-risk one, **ask**, and only then edit.
 * **Z-index/portal:** keep consistent overlay scale (toasts/drawers/modals). Define in tokens if needed.
 * **Fonts/backgrounds:** keep generated font pipeline; avoid hard asset paths.
 * **Data bindings:** keep shape parity with PROD where useful; UI remains token-first.
+* **FloatingChipWheel:** Production-ready with visual truth architecture, stable gestures, skin system, and phase-consistent rendering for complex UX patterns.

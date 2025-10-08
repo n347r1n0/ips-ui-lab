@@ -68,7 +68,7 @@ export function Home({ onOpenTournaments }) {
         activeId={activeId}
         onSelect={scrollTo}
         dock="br"    // пока фиксируем в правый-нижний
-        stepDeg={40}
+        stepDeg={36}
         skin="poker"
         skinProps={{
           rimWidth: 26,
