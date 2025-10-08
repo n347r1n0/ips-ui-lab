@@ -16,13 +16,13 @@ export function FloatingChipWheel({
 
   // геометрия/визуал
   size = 230,
-  radius = 102,
+  radius = 99,
   centerAngle,
   stepDeg,
   offset = { x: -40, y: -25 },
-  iconSize = 15,
-  chipSize = 15,
-  labelOffset = { x: -20, y: -22 },
+  iconSize = 17,
+  chipSize = 25,
+  labelOffset = { x: -15, y: -22 },
   labelClassName = '',
   className = '',
   hideOnDesktop = true,

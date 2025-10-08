@@ -71,11 +71,19 @@ export function Home({ onOpenTournaments }) {
         stepDeg={36}
         skin="poker"
         skinProps={{
-          rimWidth: 26,
+          rimWidth: 30,
           gapDeg: 0.8,
           split: 1,            // чёрный/красный по очереди
+          blurPx: 8, saturate: 1.12, brighten: 1.04,
+          cupRimColor: 'var(--metal-silver)',
+          cupRimThicknessPx: 5,
+          cupRimGlow: 0.80,
+          cupFillPreset: 'metal-silver'
+
+
+
         }}
-        labelClassName="text-left text-sm px-2 py-1"
+        labelClassName="text-left text-m px-2 py-1"
       />
 
     </div>

@@ -40,6 +40,15 @@
 
 
 
+  /* металлы */
+  --metal-gold:   #D4AF37;
+  --metal-silver: #C0C7D1; /* мягкое холодное серебро */
+
+  /* стекло-оттенки (минимум цвета, как фильтр) */
+  --chip-glass-red:   color-mix(in oklab, var(--brand-crimson) 70%, transparent);
+  --chip-glass-ivory: color-mix(in oklab, white 85%, transparent);
+
+
 
   /* Текст */
   --fg-strong: #F4F6F8;
