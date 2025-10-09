@@ -1,42 +1,59 @@
 // frontend/src/ui/patterns/FloatingChipWheel.jsx
+
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { pokerSkin } from '@/ui/skins/wheels/pokerSkin';
 
 /**
  * FloatingChipWheel — круговая навигация с дуговым свайпом и снапом.
- * Истина — stepF (дробный логический шаг). Скин — чисто фон, логику не трогаем.
+ *
+ * ЕДИНЫЙ ИСТОЧНИК ПРАВДЫ:
+ *  • Во время жеста «правда» = snapCandidateRef (то, что на экране).
+ *  • Отпустили палец — коммитим committedStepRef и колесо доснапивается.
+ *  • Внешняя синхронизация игнорируется, пока идёт взаимодействие/анимация/settle.
+ *
+ * Угол иконки: angle = center + (logicalStep - stepF) * stepDeg.
  */
 
 export function FloatingChipWheel({
-  items = [],
-  activeId,
-  onSelect,
-  dock = 'br',
+  // ───────────────────────────────────────────────────────────────
+  // 📦 ДАННЫЕ / API
+  items = [],           // массив { id, label, icon | Icon }
+  activeId,             // id активной секции (внешняя правда страницы)
+  onSelect,             // (id) => void — сообщаем наружу выбор шага
 
-  // геометрия/визуал
-  size = 230,
-  radius = 99,
-  centerAngle,
-  stepDeg,
-  offset = { x: -40, y: -25 },
-  iconSize = 17,
-  chipSize = 25,
-  labelOffset = { x: -15, y: -22 },
-  labelClassName = '',
-  className = '',
-  hideOnDesktop = true,
+  // ───────────────────────────────────────────────────────────────
+  // 📍 РАЗМЕЩЕНИЕ
+  dock = 'br',          // 'br' | 'bl' | 'tr' | 'tl'
+  offset = { x: -36, y: -15 }, // смещение фишки от угла (px)
+  hideOnDesktop = true, // скрывать на ≥sm
+  className = '',       // доп. классы контейнера
 
-  // жесты/поведение
-  enableSwipe = true,
-  deadzonePx = 6, // в градусах
-  snapDurationMs = 160,
-  showDragIndicator = true,
+  // ───────────────────────────────────────────────────────────────
+  // 📐 ГЕОМЕТРИЯ / ВИЗУАЛ
+  size = 230,           // ⌀ фишки (px)
+  radius = 99,          // радиус дорожки иконок (px)
+  centerAngle,          // угол «центра» (deg); если не задан — из dock
+  stepDeg,              // шаг между иконками (deg); иначе 360/N
+  iconSize = 17,        // размер глифа иконки (px)
+  chipSize = 25,        // размер слота иконки (px)
+  labelOffset = { x: -12, y: -18 }, // смещение подписи от гео-центра (px)
+  labelClassName = '',  // доп. классы подписи
 
-  // скины
-  skin = 'glass', // 'glass' | 'poker'
-  skinProps = {},
+  // ───────────────────────────────────────────────────────────────
+  // ✋ ЖЕСТЫ / ПОВЕДЕНИЕ
+  enableSwipe = true,   // включить свайп по дуге
+  deadzonePx = 6,       // порог старта драга (deg)
+  snapDurationMs = 160, // длительность «доводки» (ms)
+  showDragIndicator = true, // дуга при перетягивании (для простых скинов)
+
+  // ───────────────────────────────────────────────────────────────
+  // 🎨 СКИН
+  skin = 'poker',       // 'glass' | 'poker'
+  skinProps = {},       // параметры скина (цвета/ширины/центр/акцент активной иконки и пр.)
 }) {
+  // ───────────────────────────────────────────────────────────────
+  // Подготовка данных
   const clean = useMemo(() => items.filter(Boolean), [items]);
   const N = clean.length;
   if (N === 0) return null;
@@ -57,26 +74,26 @@ export function FloatingChipWheel({
   const translate = `translate(calc(${anchor.tx * 50}% + ${anchor.tx * (offset?.x ?? 0)}px),
                                 calc(${anchor.ty * 50}% + ${anchor.ty * (offset?.y ?? 0)}px))`;
 
-  // ── единый источник правды: дробный шаг
+  // ───────────────────────────────────────────────────────────────
+  // Источник правды — stepF (дробный шаг)
   const [stepFState, setStepFState] = useState(0);
   const stepF = useRef(0);
   const setStepF = (v) => { stepF.current = v; setStepFState(v); };
 
-  // кандидат/коммит
-  const snapCandidateRef = useRef(0);
-  const committedStepRef = useRef(null);
+  const snapCandidateRef = useRef(0);    // ближайший целый «под пальцем»
+  const committedStepRef = useRef(null); // зафиксированный шаг на время снапа
 
-  // Жесты/анимация
+  // Ввод/анимация
   const rootRef = useRef(null);
   const draggingRef = useRef(false);
-  const startedRef   = useRef(false);
+  const startedRef = useRef(false);
   const startAngleRef = useRef(0);
-  const startStepRef  = useRef(0);
+  const startStepRef = useRef(0);
 
   const rafRef = useRef(null);
   const [animating, setAnimating] = useState(false);
 
-  // внешняя синхра (лок на время собственного снапа)
+  // Лок внешней синхры на ожидаемый id + settle-пауза
   const lockTargetIdRef = useRef(null);
   const lockTimerRef = useRef(null);
   const interactionLockRef = useRef(false);
@@ -85,36 +102,51 @@ export function FloatingChipWheel({
 
   const pickStep = (s) => Math.round(s);
 
-  // ! ФИКС МИГАНИЯ: фиксируем «фазу» фишки один раз при маунте
-  const phase0Ref = useRef(Math.floor(stepF.current)); // целочисленная база на старте
-
-  // анимация шага
+  // ───────────────────────────────────────────────────────────────
+  // Анимация
   const animateStepTo = (targetStep, durMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
     const start = stepF.current;
     const delta = targetStep - start;
-    if (Math.abs(delta) < 1e-3 || durMs <= 0) { setStepF(targetStep); onDone?.(); return; }
+
+    if (Math.abs(delta) < 1e-3 || durMs <= 0) {
+      setStepF(targetStep);
+      onDone?.();
+      return;
+    }
 
     setAnimating(true);
     const t0 = performance.now();
+
     const tick = (t) => {
       const p = Math.min(1, (t - t0) / durMs);
       const eased = 1 - Math.pow(1 - p, 3);
       setStepF(start + delta * eased);
-      if (p < 1) { rafRef.current = requestAnimationFrame(tick); }
-      else { rafRef.current = null; setStepF(targetStep); setAnimating(false); onDone?.(); }
+
+      if (p < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        rafRef.current = null;
+        setStepF(targetStep);
+        setAnimating(false);
+        onDone?.();
+      }
     };
+
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  // снап (коммит «того, что видно»)
   const snapTo = (logicalStep) => {
     committedStepRef.current = logicalStep;
 
     const id = clean[((logicalStep % N) + N) % N]?.id || null;
     lockTargetIdRef.current = id;
     if (lockTimerRef.current) clearTimeout(lockTimerRef.current);
-    lockTimerRef.current = setTimeout(() => { lockTargetIdRef.current = null; lockTimerRef.current = null; }, 1200);
+    lockTimerRef.current = setTimeout(() => {
+      lockTargetIdRef.current = null;
+      lockTimerRef.current = null;
+    }, 1200);
 
     interactionLockRef.current = true;
     if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
@@ -130,7 +162,8 @@ export function FloatingChipWheel({
     });
   };
 
-  // page scroll lock
+  // ───────────────────────────────────────────────────────────────
+  // Жесты
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -138,16 +171,16 @@ export function FloatingChipWheel({
     return () => { root.style.touchAction = ''; };
   }, []);
 
-  // жесты
   useEffect(() => {
     if (!enableSwipe) return;
     const root = rootRef.current;
     if (!root) return;
 
-    let prevBodyTA = ''; let prevOver = '';
+    let prevBodyTA = '';
+    let prevOver = '';
     const lockBody = () => {
       prevBodyTA = document.body.style.touchAction || '';
-      prevOver   = document.body.style.overscrollBehaviorY || '';
+      prevOver = document.body.style.overscrollBehaviorY || '';
       document.body.style.touchAction = 'none';
       document.body.style.overscrollBehaviorY = 'none';
     };
@@ -169,7 +202,7 @@ export function FloatingChipWheel({
       const cy = rect.top + rect.height / 2;
 
       startAngleRef.current = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
-      startStepRef.current  = stepF.current;
+      startStepRef.current = stepF.current;
 
       snapCandidateRef.current = pickStep(stepF.current);
     };
@@ -185,17 +218,21 @@ export function FloatingChipWheel({
       let deltaDeg = angNow - startAngleRef.current;
       if (deltaDeg > 180) deltaDeg -= 360;
       if (deltaDeg < -180) deltaDeg += 360;
+
+      // по часовой — вперёд по ленте
       deltaDeg = -deltaDeg;
 
       if (!startedRef.current) {
         if (Math.abs(deltaDeg) < deadzonePx) return;
-        startedRef.current = true; lockBody();
+        startedRef.current = true;
+        lockBody();
       }
 
       e.preventDefault?.();
 
       const deltaStep = deltaDeg / step;
       const nextStepF = startStepRef.current + deltaStep;
+
       setStepF(nextStepF);
       snapCandidateRef.current = pickStep(nextStepF);
     };
@@ -205,7 +242,8 @@ export function FloatingChipWheel({
       draggingRef.current = false;
 
       if (startedRef.current) {
-        snapTo(snapCandidateRef.current);
+        const targetStep = snapCandidateRef.current;
+        snapTo(targetStep);
       }
 
       startedRef.current = false;
@@ -227,7 +265,8 @@ export function FloatingChipWheel({
     };
   }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, animating]);
 
-  // внешняя синхра
+  // ───────────────────────────────────────────────────────────────
+  // Внешняя синхронизация
   useEffect(() => {
     if (interactionLockRef.current || animating) return;
 
@@ -244,13 +283,17 @@ export function FloatingChipWheel({
     if (targetIdx < 0) return;
 
     const s = stepF.current;
-    let best = targetIdx, bestDist = Infinity;
+    let best = targetIdx;
+    let bestDist = Infinity;
     for (let k = -1; k <= 1; k++) {
       const cand = targetIdx + k * N;
       const dist = Math.abs(cand - s);
       if (dist < bestDist) { bestDist = dist; best = cand; }
     }
-    if (bestDist > 1e-3) animateStepTo(best, snapDurationMs);
+
+    if (bestDist > 1e-3) {
+      animateStepTo(best, snapDurationMs);
+    }
   }, [activeId, clean, N, snapDurationMs, animating]);
 
   useEffect(() => () => {
@@ -259,7 +302,8 @@ export function FloatingChipWheel({
     if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
   }, []);
 
-  // окно иконок
+  // ───────────────────────────────────────────────────────────────
+  // Окно иконок
   const visibleIcons = useMemo(() => {
     const base = Math.floor(stepF.current);
     const arr = [];
@@ -272,30 +316,27 @@ export function FloatingChipWheel({
     return arr;
   }, [stepFState, step, center, N, clean]);
 
-  // актив
   const currentIndex = useMemo(() => {
-    const refStep = (committedStepRef.current !== null)
-      ? committedStepRef.current
-      : (draggingRef.current ? snapCandidateRef.current : pickStep(stepF.current));
+    const refStep =
+      (committedStepRef.current !== null)
+        ? committedStepRef.current
+        : (draggingRef.current ? snapCandidateRef.current : Math.round(stepF.current));
     return ((refStep % N) + N) % N;
   }, [stepFState, N]);
 
-  // геометрия + сегменты (привязаны к окну иконок)
+  // Геометрия для скина
   const base = Math.floor(stepF.current);
   const frac = stepF.current - base;
-  const segments = visibleIcons.map(s => ({
-    angle: s.angle,
-    logicalStep: s.logicalStep,
-    idx: s.idx,
-    isActive: s.idx === currentIndex,
-  }));
-
   const geometry = {
-    size, radius, center,
-    stepDeg: step, stepF: stepF.current,
-    base, frac, currentIndex, items: clean,
-    segments,
-    phase0: phase0Ref.current, // <<< фикс фазы для скина (стабильный паритет)
+    size,
+    radius,
+    center,
+    stepDeg: step,
+    stepF: stepF.current,
+    base,
+    frac,
+    currentIndex,
+    items: clean,
   };
 
   const skinImpl =
@@ -331,14 +372,18 @@ export function FloatingChipWheel({
       aria-hidden={false}
     >
       <div
-        className={twMerge('relative rounded-full', 'bg-[--bg-1]/80 backdrop-blur-[var(--glass-blur)]',
-          'border border-[--glass-border]', 'shadow-[var(--shadow-m)]')}
+        className={twMerge(
+          'relative rounded-full',
+          'bg-[--bg-1]/80 backdrop-blur-[var(--glass-blur)]',
+          'border border-[--glass-border]',
+          'shadow-[var(--shadow-m)]'
+        )}
         style={{ width: size, height: size }}
       >
-        {/* skin: фон/обод/клинья — строго под иконками и по тем же сегментам */}
+        {/* skin: фон/обод/клинья до иконок */}
         {skinImpl.beforeIcons?.(geometry, skinProps)}
 
-        {/* подпись */}
+        {/* Подпись — через скин (он обрамит центром) */}
         <div
           className="absolute left-1/2 top-1/2"
           style={{
@@ -348,54 +393,79 @@ export function FloatingChipWheel({
         >
           {skinImpl.CenterLabelWrap
             ? skinImpl.CenterLabelWrap(
-                geometry, skinProps,
+                geometry,
+                skinProps,
                 <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
                   {clean[currentIndex]?.label}
                 </div>
               )
-            : <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
-                {clean[currentIndex]?.label}
-              </div>}
+            : (
+                <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
+                  {clean[currentIndex]?.label}
+                </div>
+              )}
         </div>
 
-        {/* иконки — как были */}
+        {/* Иконки — бесшовная лента c декорацией скина */}
         {visibleIcons.map(({ key, idx, angle, logicalStep }) => {
           const isActive = idx === currentIndex;
+
           const iconNode = (
-            <div className={twMerge('w-full h-full grid place-items-center rounded-full transition-transform',
-                                    isActive ? 'scale-[1.06]' : '')}>
+            <div
+              className={twMerge(
+                'w-full h-full grid place-items-center rounded-full transition-transform',
+                isActive ? 'scale-[1.06]' : ''
+              )}
+            >
               {renderIcon(clean[idx])}
             </div>
           );
+
           return (
             <button
               key={key}
               type="button"
               onClick={() => { if (!animating && !draggingRef.current) snapTo(logicalStep); }}
-              className={twMerge('absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
-                                 'rounded-full', isActive ? 'shadow-[var(--shadow-s)]' : '')}
+              className={twMerge(
+                'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2',
+                'rounded-full',
+                isActive ? 'shadow-[var(--shadow-s)]' : ''
+              )}
               style={{
                 transform: `translate(-50%, -50%) rotate(${angle}deg) translate(${radius}px) rotate(${-angle}deg)`,
-                width: chipSize, height: chipSize, pointerEvents: 'auto', willChange: 'transform',
+                width: chipSize,
+                height: chipSize,
+                pointerEvents: 'auto',
+                willChange: 'transform',
               }}
               aria-current={isActive ? 'page' : undefined}
               aria-label={clean[idx].label}
               title={clean[idx].label}
             >
-              {skinImpl.decorateIcon ? skinImpl.decorateIcon(iconNode, { isActive, geometry, skinProps }) : iconNode}
+              {skinImpl.decorateIcon
+                ? skinImpl.decorateIcon(iconNode, { isActive, geometry, skinProps })
+                : iconNode}
             </button>
           );
         })}
 
-        {/* skin: поверх иконок (если нужно) */}
+        {/* skin: поверх иконок */}
         {skinImpl.afterIcons?.(geometry, skinProps)}
 
-        {/* индикатор свайпа — выключаем для poker */}
+        {/* Индикатор при активном драге (в poker-скине не нужен) */}
         {showDragIndicator && draggingRef.current && startedRef.current && skin !== 'poker' && (
-          <div className="pointer-events-none absolute inset-0 rounded-full"
-               style={{ background: `conic-gradient(from ${center - 45}deg, transparent,
-                       rgba(212,175,55,0.12) ${center - 20}deg, rgba(212,175,55,0.22) ${center}deg,
-                       rgba(212,175,55,0.12) ${center + 20}deg, transparent)` }} aria-hidden />
+          <div
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{
+              background: `conic-gradient(from ${center - 45}deg,
+                transparent,
+                rgba(212,175,55,0.12) ${center - 20}deg,
+                rgba(212,175,55,0.22) ${center}deg,
+                rgba(212,175,55,0.12) ${center + 20}deg,
+                transparent)`
+            }}
+            aria-hidden
+          />
         )}
       </div>
     </div>

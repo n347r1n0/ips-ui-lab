@@ -1,157 +1,140 @@
 // frontend/src/ui/skins/wheels/pokerSkin.jsx
 import React from 'react';
+import { resolvePresets } from './pokerSkin.presets';
 
 /**
- * Poker-chip skin (стеклянные клинья + центр «чашка»)
+ * Poker-chip skin (seamless, token-friendly).
  *
- * Принципы:
- *  • Никакой логики жестов — только отрисовка слоёв поверх двигателя колеса.
- *  • Визуальные клинья рисуем одним repeating-conic-gradient, БЕЗ поштучных DOM-нод.
- *  • Фаза узора синхронизирована с иконками: phase = center + phaseDeg − stepF*stepDeg.
- *  • Маска кольца единая, «шва» нет: ничего не дорисовывается/не мигает в зоне видимости.
- *  • Центр-«чашка» строго по центру колеса и НЕ перекрывает подпись (лейбл идёт поверх).
+ * Кольцо:
+ *  • Узoр клиньев — один repeating-conic-gradient (бесшовный).
+ *  • Фаза узора = center + phaseDeg − stepF*stepDeg (жёстко привязана к ленте иконок).
+ *  • Стекло — отдельный слой backdropFilter под узором.
+ *  • Разделители — второй repeating-conic поверх (тонкие линии).
  *
- * API (skinProps):
- *  — Геометрия кольца:
- *      rimWidth         : px — ширина обода (кольца) от внешнего края к центру (default 26)
- *      gapDeg           : deg — ширина тонкого разделителя между клиньями (default 2)
- *      wedgeFillDeg     : deg — фактическая ширина «заливки» клина (по умолчанию stepDeg - gapDeg)
- *      phaseDeg         : deg — тонкая подстройка совмещения клиньев с иконками (default 0)
+ * Центр:
+ *  • 'bowl'  — мягкая вогнутая чаша (без изменений).
+ *  • 'bezel' — ЦЕНТРАЛЬНЫЙ ДИСК как был + ПОД НИМ большой диск с inset-тенями (без «кромок»).
  *
- *  — «Стекло» (под узором):
- *      blurPx           : px — размытие backdropFilter
- *      saturate         : number — насыщенность
- *      brighten         : number — яркость
- *      tintAlphaRed     : 0..1 — интенсивность красного стекла
- *      tintAlphaIvory   : 0..1 — интенсивность светлого стекла
- *
- *  — Разделители:
- *      showGaps         : boolean — рисовать ли тонкие разделители поверх узора
- *      gapAlpha         : 0..1 — прозрачность разделителей
- *
- *  — Цвета (токены приветствуются):
- *      red              : css-color — базовый красный (будет превращен в полупрозрачный tint)
- *      ivory            : css-color — светлый стеклянный
- *      baseDark/baseDark2: css-color — подложка диска под кольцом
- *
- *  — Центр («чашка»):
- *      cupEnabled       : boolean — рисовать ли центр
- *      cupDiameterPct   : 0..1 — диаметр чашки относительно size (default 0.34)
- *      cupRimThicknessPx: px — толщина кромки чашки (default 6)
- *      cupRimColor      : css-color — цвет кромки (например, var(--metal-gold) / var(--metal-silver))
- *      cupRimGlow       : 0..1 — лёгкое свечение кромки
- *      cupFillPreset    : 'glass-dark' | 'glass-light' | 'metal-silver' | 'custom'
- *      cupFill          : css-gradient — если preset='custom'
- *      cupInnerShadow   : css-box-shadow — внутренняя тень чашки
- *
- *  — Эмблема/розетка в чашке:
- *      emblemEnabled        : boolean
- *      emblemSVG            : string — ваш SVG-контент (БЕЗ <svg> оболочки); берёт цвет из currentColor
- *      emblemOpacity        : 0..1
- *      emblemColor          : css-color
- *      emblemStroke         : px
- *      emblemScalePct       : 0..1 — размер эмблемы относительно диаметра чашки
- *      emblemCount          : number — кол-во лучей для дефолтной «розетки»
- *      emblemInnerRadiusPct : 0..1 — внутренний радиус для лучей (viewBox=24)
- *      emblemOuterRadiusPct : 0..1 — внешний радиус для лучей (viewBox=24)
+ * Активная иконка:
+ *  • Прозрачная золотая подложка-«колечко» + мягкий glow + масштаб.
+ *  • Цвет глифа можно переключать на золотой или оставить белым.
  */
-
 export const pokerSkin = {
+  // ─────────────────────────────────────────────────────────
+  // СЛОИ ДО ИКОНОК
   beforeIcons(geom, props = {}) {
     const { size, center, stepDeg, stepF } = geom;
 
-    // ─────────────────────────────────────────────────────────────
-    // Defaults (все управляемые, но с вменяемыми значениями)
-    const {
-      // геометрия
-      rimWidth = 80,
-      gapDeg = 2,
-      wedgeFillDeg = null,
-      phaseDeg = 0,
+    // Пресеты
+    const { palette, center: centerPreset } = resolvePresets(props);
 
-      // стекло
+    // ╭───────────────────── КОНТРОЛИ (с комментариями) — действующие пропсы ─────────────────────╮
+    const {
+      // 🧭 Геометрия кольца
+      rimWidth = 26,           // толщина цветного обода (px)
+      gapDeg = 2,              // ширина разделителя между клиньями (deg)
+      visualWedgeDeg = null,   // ширина «видимого» клина (deg); если null — = stepDeg
+      phaseDeg = 0,            // подстройка фазы узора (совпадение иконки и клина)
+      overlapDeg = 0.0,        // небольшое «налезание» клина на соседа против щелей (deg)
+
+      // 🪟 Стекло (под узором; влияет на фон под кольцом)
       blurPx = 8,
       saturate = 1.12,
       brighten = 1.04,
-      tintAlphaRed = 0.46,
-      tintAlphaIvory = 0.20,
 
-      // разделители
+      // ┆ Разделители клиньев
       showGaps = true,
       gapAlpha = 0.28,
 
-      // цвета
-      red = 'color-mix(in oklab, var(--brand-crimson, #EE2346) 78%, black)',
-      ivory = 'color-mix(in oklab, white 92%, var(--bg-0, #0B0D12) 8%)',
+      // ⚪ Центр (вариант визуала)
+      centerStyle = centerPreset.style,                    // 'bowl' | 'bezel'
+      cupInnerR = Math.round(size * centerPreset.innerR),  // радиус центрального диска (px)
+      cupRimThicknessPx = Math.max(2, Math.round(size * centerPreset.rimThickness)), // не используется в bezel
 
-      // базовый диск
-      showBase = true,
-      baseDark = 'var(--bg-2, #141A22)',
-      baseDark2 = 'var(--bg-0, #0B0D12)',
+      // 🎨 Палитра кольца (можно переопределить любые из пресета)
+      red     = palette.red,
+      ivory   = palette.ivory,
+      tintAlphaRed   = palette.tintAlphaRed,
+      tintAlphaIvory = palette.tintAlphaIvory,
+      baseDark  = palette.baseDark,   // база под стеклом
+      baseDark2 = palette.baseDark2,
 
-      // центр («чашка»)
-      cupEnabled = true,
-      cupDiameterPct = 0.64,     // диаметр чашки = 34% от size
-      cupRimThicknessPx = 6,     // толщина кромки, px
-      cupRimColor = 'var(--metal-gold, #D4AF37)',
-      cupRimGlow = 0.30,         // интенсивность свечения кромки
-      cupFillPreset = 'glass-dark', // пресеты: glass-dark | glass-light | metal-silver | custom
-      cupFill = 'radial-gradient(70% 65% at 50% 40%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 38%, rgba(0,0,0,0.65) 100%)',
-      cupInnerShadow = 'inset 0 8px 20px rgba(0,0,0,0.55)',
+      // — НАСТРОЙКИ ПОДЛОЖКИ ПОД ЦЕНТРАЛЬНЫМ ДИСКОМ (только для 'bezel') —
 
-      // эмблема/розетка
-      emblemEnabled = false,
-      emblemSVG = null,
-      emblemOpacity = 0.55,
-      emblemColor = 'var(--metal-gold, #D4AF37)',
-      emblemStroke = 1.4,
-      emblemScalePct = 0.72,
-      emblemCount = 8,
-      emblemInnerRadiusPct = 0.26,
-      emblemOuterRadiusPct = 0.42,
+      underDiskEnabled = true,   // рисовать ли круг-подложку под центральным диском
+      underDiskExtraPx = 14,     // ширина видимой «полки» вокруг центрального диска (px)
+      underDiskFill = null,      // если задано — используем как есть (сплошной цвет или градиент)
+      underDiskMatch = 'none',   // 'none' | 'red' | 'ivory' — взять оттенок, как у клиньев (через те же альфы)
+      underDiskBlurPx = 12,      // радиус размытия inset-теней (px)
+      underDiskInsetDark = 0.55, // тёмная внутренняя тень (alpha 0..1)
+      underDiskInsetLight = 0.22,// тонкий светлый кант изнутри (alpha 0..1)
+
+
+      underDiskBrightness = 1.0, // 0.7..1.3 — равномерно темнее/светлее нижнего диска
+
+      // DROP-тени ОТ центрального диска НА нижний (в режиме 'bezel')
+      centerDropDarkAlpha = 0.28,
+      centerDropDarkBlur  = 16,  // px
+      centerDropLightAlpha = 0.10,
+      centerDropLightBlur  = 8,  // px
+
+      // Кант у центрального диска (тонкий светлый «ободок» изнутри)
+      centerInsetLight = 0.18,   // 0..1 (0 — выкл)
+
+      // Инверсия шейдинга центрального диска (светлые края, тёмный центр)
+      centerInvertShading = false,
+
+
+
+
+
+      // ✨ Активная иконка (визуальный акцент)
+      activeIcon = {
+        ringEnabled: true,
+        ringAlpha: 0.18,
+        ringRadiusPx: 20,
+        ringSoftPx: 10,
+        scale: 1.2,
+        glow: 0.30,
+        insetGlow: 0.12,
+        glyph: 'inherit',
+        activeGlyphColor: 'var(--gold, #D4AF37)',
+      },
     } = props;
+    // ╰────────────────────────────────────────────────────────────────────────────────────────────╯
 
-    // ─────────────────────────────────────────────────────────────
-    // Удобные сокращения
     const outerR = size / 2;
     const innerR = Math.max(0, outerR - rimWidth);
 
-    const fill = Math.max(0, (wedgeFillDeg ?? (stepDeg - gapDeg))); // «чистая» ширина клина
-    const period = 2 * stepDeg;                                     // красный + светлый
-    const phase = center + phaseDeg - stepF * stepDeg;              // фаза узора (как у иконок)
+    const wedgeBase = (visualWedgeDeg ?? stepDeg);
+    const wedgeDeg  = Math.max(0, wedgeBase - gapDeg);
+    const period    = 2 * wedgeBase; // красный + светлый
+    const phase     = center + phaseDeg - stepF * stepDeg;
 
-    // Утилита полупрозрачного цвета
-    const withAlpha = (color, a) => `color-mix(in oklab, ${color} ${Math.round(a * 100)}%, transparent)`;
-    const redTint = withAlpha(red, tintAlphaRed);
+    const withAlpha = (c, a) => `color-mix(in oklab, ${c} ${Math.round(a * 100)}%, transparent)`;
+    const redTint   = withAlpha(red,   tintAlphaRed);
     const ivoryTint = withAlpha(ivory, tintAlphaIvory);
 
-    // Маска кольца (вырезаем всё внутри innerR)
+    // Ограничение: всё рисуем ТОЛЬКО на кольце
     const ringMask = `radial-gradient(circle at 50% 50%, transparent ${innerR - 0.5}px, black ${innerR}px)`;
 
-    // ─────────────────────────────────────────────────────────────
-    // Слои на кольце
-    const layers = [];
+    // База под стеклом
+    const baseLayer = (
+      <div
+        key="disk:base"
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          background: `radial-gradient(80% 80% at 50% 42%, ${baseDark} 0%, ${baseDark2} 72%, #000 100%)`,
+          boxShadow: '0 10px 28px rgba(0,0,0,0.35)',
+        }}
+      />
+    );
 
-    if (showBase) {
-      layers.push(
-        <span
-          key="disk:base"
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            background: `radial-gradient(80% 80% at 50% 42%, ${baseDark} 0%, ${baseDark2} 72%, #000 100%)`,
-            boxShadow: '0 10px 28px rgba(0,0,0,0.35)',
-          }}
-        />
-      );
-    }
-
-    // «Стекло» под узором (равномерное размытие фона под кольцом)
-    layers.push(
-      <span
+    // Стекло
+    const glassLayer = (
+      <div
         key="ring:glass"
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-full pointer-events-none"
         style={{
           WebkitMask: ringMask,
           mask: ringMask,
@@ -160,25 +143,24 @@ export const pokerSkin = {
       />
     );
 
-    // Основной узор: красный/прозрачный/ivory/прозрачный, повторяющийся с периодом 2*stepDeg
-    layers.push(
-      <span
+    // Узoр клиньев (бесшовный)
+    const tintLayer = (
+      <div
         key="ring:tint"
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-full pointer-events-none"
         style={{
           WebkitMask: ringMask,
           mask: ringMask,
           background: `
             repeating-conic-gradient(
-              from ${phase}deg,
+              from ${phase - overlapDeg}deg,
               ${redTint} 0deg,
-              ${redTint} ${fill}deg,
-              transparent ${fill}deg,
-              transparent ${fill + gapDeg}deg,
-              ${ivoryTint} ${fill + gapDeg}deg,
-              ${ivoryTint} ${fill + gapDeg + fill}deg,
-              transparent ${fill + gapDeg + fill}deg,
+              ${redTint} ${wedgeDeg + overlapDeg}deg,
+              transparent ${wedgeDeg + overlapDeg}deg,
+              transparent ${wedgeDeg + gapDeg - overlapDeg}deg,
+              ${ivoryTint} ${wedgeDeg + gapDeg - overlapDeg}deg,
+              ${ivoryTint} ${wedgeDeg + gapDeg + wedgeDeg}deg,
+              transparent ${wedgeDeg + gapDeg + wedgeDeg}deg,
               transparent ${period}deg
             )
           `,
@@ -186,40 +168,36 @@ export const pokerSkin = {
       />
     );
 
-    // Тонкие разделители поверх узора (не зависят от AA основного tint-градиента)
-    if (showGaps) {
-      layers.push(
-        <span
-          key="ring:gaps"
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            WebkitMask: ringMask,
-            mask: ringMask,
-            background: `
-              repeating-conic-gradient(
-                from ${phase}deg,
-                transparent 0deg,
-                transparent ${fill}deg,
-                rgba(255,255,255,${gapAlpha}) ${fill}deg,
-                rgba(255,255,255,${gapAlpha}) ${fill + gapDeg}deg,
-                transparent ${fill + gapDeg}deg,
-                transparent ${fill + gapDeg + fill}deg,
-                rgba(255,255,255,${gapAlpha}) ${fill + gapDeg + fill}deg,
-                rgba(255,255,255,${gapAlpha}) ${period}deg
-              )
-            `,
-          }}
-        />
-      );
-    }
+    // Разделители
+    const gapsLayer = showGaps ? (
+      <div
+        key="ring:gaps"
+        className="absolute inset-0 rounded-full pointer-events-none"
+        style={{
+          WebkitMask: ringMask,
+          mask: ringMask,
+          background: `
+            repeating-conic-gradient(
+              from ${phase}deg,
+              transparent 0deg,
+              transparent ${wedgeDeg}deg,
+              rgba(255,255,255,${gapAlpha}) ${wedgeDeg}deg,
+              rgba(255,255,255,${gapAlpha}) ${wedgeDeg + gapDeg}deg,
+              transparent ${wedgeDeg + gapDeg}deg,
+              transparent ${wedgeDeg + gapDeg + wedgeDeg}deg,
+              rgba(255,255,255,${gapAlpha}) ${wedgeDeg + gapDeg + wedgeDeg}deg,
+              rgba(255,255,255,${gapAlpha}) ${period}deg
+            )
+          `,
+        }}
+      />
+    ) : null;
 
-    // Лёгкая внутренняя тень кольца
-    layers.push(
-      <span
+    // Внутренняя тень по ободу
+    const innerShadow = (
+      <div
         key="ring:inner-shadow"
-        aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-full"
+        className="absolute inset-0 rounded-full pointer-events-none"
         style={{
           WebkitMask: ringMask,
           mask: ringMask,
@@ -228,125 +206,172 @@ export const pokerSkin = {
       />
     );
 
-    // ─────────────────────────────────────────────────────────────
-    // Центр («чашка») — строго по центру колеса
-    if (cupEnabled) {
-      const cup = Math.round(size * cupDiameterPct);            // диаметр чашки
-      const rimT = Math.max(1, Math.round(cupRimThicknessPx));  // толщина кромки
-      const rimOuter = cup + rimT * 2;                          // внешний диаметр кромки
+    // Центр
+    const centerLayers = (() => {
+      const inner = cupInnerR;                // радиус центрального диска
+      const underR = inner + Math.max(0, underDiskExtraPx); // радиус подложки (только для 'bezel')
 
-      const cupFillByPreset =
-        cupFillPreset === 'glass-light'
-          ? 'radial-gradient(70% 65% at 50% 40%, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.06) 42%, rgba(0,0,0,0.55) 100%)'
-          : cupFillPreset === 'metal-silver'
-          ? 'radial-gradient(65% 65% at 50% 45%, #E7EBF2 5%, #C9CED8 35%, #9FA6B2 70%, #5F6673 100%)'
-          : cupFillPreset === 'glass-dark'
-          ? 'radial-gradient(70% 65% at 50% 40%, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.04) 38%, rgba(0,0,0,0.65) 100%)'
-          : cupFill; // custom
+      if (centerStyle === 'bezel') {
+        return (
+          <div key="center:bezel" className="absolute inset-0 pointer-events-none">
 
-      // Кромка фиксированной толщины через маску (кольцо)
-      layers.push(
-        <span
-          key="center:rim"
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{
-            width: rimOuter,
-            height: rimOuter,
-            background: cupRimColor, // золото/серебро/любой цвет
-            WebkitMask: `radial-gradient(circle at 50% 50%, transparent ${cup/2}px, black ${cup/2 + 0.5}px)`,
-            mask:       `radial-gradient(circle at 50% 50%, transparent ${cup/2}px, black ${cup/2 + 0.5}px)`,
-            filter: `drop-shadow(0 0 6px color-mix(in oklab, ${cupRimColor} ${Math.round(
-              cupRimGlow * 100
-            )}%, transparent))`,
-          }}
-        />
-      );
 
-      // Сама «чашка»
-      layers.push(
-        <span
-          key="center:cup"
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-          style={{
-            width: cup,
-            height: cup,
-            background: cupFillByPreset,
-            boxShadow: cupInnerShadow,
-          }}
-        />
-      );
+            {/* 1) ПОДЛОЖКА — бОльший диск с симметричными inset-тенями (без масок/блендов) */}
+            {underDiskEnabled && (() => {
+              const grow = Math.max(0, underDiskExtraPx);
+              const w = (inner + grow) * 2;
+              const h = w;
 
-      // Эмблема (под лейблом, над чашкой)
-      if (emblemEnabled) {
-        const emW = Math.round(cup * emblemScalePct);
-        const emH = emW;
+              // как красный/ivory клин «через стекло» — берём те же тины, что и клинья
+              const matched = underDiskMatch === 'red'   ? redTint
+                            : underDiskMatch === 'ivory' ? ivoryTint
+                            : null;
 
-        if (emblemSVG && typeof emblemSVG === 'string') {
-          layers.push(
-            <span
-              key="center:emblem-custom"
-              aria-hidden
-              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-              style={{ width: emW, height: emH, opacity: emblemOpacity, color: emblemColor }}
-              dangerouslySetInnerHTML={{
-                __html: `<svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" stroke-width="${emblemStroke}" stroke-linecap="round" stroke-linejoin="round">${emblemSVG}</svg>`
+              // итоговая заливка подложки:
+              // 1) если задан underDiskFill — используем как есть (цвет/градиент);
+              // 2) если underDiskMatch — используем matched-цвет (плюс лёгкая деградация к тёмному по краю);
+              // 3) иначе — неброский титановый градиент из пресета.
+              const baseUnder =
+                underDiskFill ? underDiskFill
+                : matched
+                ? `radial-gradient(75% 75% at 50% 50%,
+                    ${matched} 0%,
+                    color-mix(in oklab, ${matched} 70%, black) 100%)`
+                : (palette?.underDiskFill ?? `radial-gradient(75% 75% at 50% 50%,
+                    color-mix(in oklab, var(--bg-0) 86%, white 14%) 0%,
+                    color-mix(in oklab, var(--bg-0) 76%, white 24%) 45%,
+                    color-mix(in oklab, var(--bg-0) 58%, black 42%) 100%)`);
+
+              return (
+                <div
+                  className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    width: w, height: h,
+
+                    background: baseUnder,          // ← сплошной цвет или «совпадающий» с клиньями
+
+                    filter: `brightness(${underDiskBrightness})`,
+
+                    // две симметричные inset-тени: тёмная «в глубину» и тонкий светлый кант
+                    boxShadow: `
+                      inset 0 0 ${underDiskBlurPx}px rgba(0,0,0,${underDiskInsetDark}),
+                      inset 0 0 0 1px rgba(255,255,255,${underDiskInsetLight})
+                    `,
+                  }}
+                />
+              );
+            })()}
+
+
+
+            {/* 2) ЦЕНТРАЛЬНЫЙ ДИСК — как был (титановый). БЕЗ внешней тени (drop) на этом шаге */}
+
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{
+                width: inner * 2,
+                height: inner * 2,
+                // ВАЖНО: без rgba/альфы — чисто непрозрачный градиент
+
+
+
+                background: centerInvertShading
+                  ? `radial-gradient(85% 85% at 50% 50%,
+                       color-mix(in oklab, var(--bg-0) 68%, black 32%) 0%,
+                       color-mix(in oklab, var(--bg-0) 80%, white 20%) 100%
+                     )` // свет по краям, темнее к центру
+                  : `radial-gradient(75% 75% at 50% 45%,
+                       color-mix(in oklab, var(--bg-0) 84%, white 16%) 0%,
+                       color-mix(in oklab, var(--bg-0) 90%, white 10%) 45%,
+                       color-mix(in oklab, var(--bg-0) 65%, black 35%) 100%
+                     )`,
+                // ВНЕШНИЕ DROP-ТЕНИ (падают на нижний диск) + ТОНКИЙ СВЕТЛЫЙ КАНТ изнутри
+                boxShadow: `
+                  0 0 ${centerDropDarkBlur}px rgba(0,0,0,${centerDropDarkAlpha}),
+                  0 0 ${centerDropLightBlur}px rgba(255,255,255,${centerDropLightAlpha}),
+                  inset 0 0 0 1px rgba(255,255,255,${centerInsetLight}),
+                  inset 0 8px 18px rgba(0,0,0,0.35)
+                `,
+
+                // защита от смешивания
+                mixBlendMode: 'normal'
               }}
             />
-          );
-        } else {
-          // дефолтная «розетка»: круг + N лучей
-          layers.push(
-            <span
-              key="center:emblem-rays"
-              aria-hidden
-              className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-              style={{ width: emW, height: emH, opacity: emblemOpacity, color: emblemColor }}
-            >
-              <svg
-                viewBox="0 0 24 24"
-                width="100%"
-                height="100%"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={emblemStroke}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r={24 * emblemInnerRadiusPct * 0.5} />
-                {Array.from({ length: emblemCount }).map((_, i) => {
-                  const a = (i * (360 / emblemCount)) * Math.PI / 180;
-                  const r1 = 24 * emblemInnerRadiusPct * 0.5;
-                  const r2 = 24 * emblemOuterRadiusPct * 0.5;
-                  const x1 = 12 + Math.cos(a) * r1;
-                  const y1 = 12 + Math.sin(a) * r1;
-                  const x2 = 12 + Math.cos(a) * r2;
-                  const y2 = 12 + Math.sin(a) * r2;
-                  return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} />;
-                })}
-              </svg>
-            </span>
-          );
-        }
+          </div>
+        );
       }
-    }
 
-    // Вернём все слои одним контейнером (pointer-events:none — скин не мешает жестам)
+      // bowl — без изменений
+      const rimSize = cupRimThicknessPx;
+      const rimOuter = inner + rimSize;
+      const rimMask = `radial-gradient(circle at 50% 50%,
+        transparent ${inner - 0.5}px,
+        black ${inner}px,
+        black ${rimOuter}px,
+        transparent ${rimOuter + 0.5}px)`;
+
+      return (
+        <div key="center:bowl" className="absolute inset-0 pointer-events-none">
+          {/* Светлая кромка */}
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              WebkitMask: rimMask,
+              mask: rimMask,
+              background: `linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.5))`,
+              opacity: 0.9,
+            }}
+          />
+          {/* Halo над кромкой */}
+          <div
+            className="absolute inset-0 rounded-full"
+            style={{
+              WebkitMask: `radial-gradient(circle at 50% 50%,
+                transparent ${inner - 2}px,
+                rgba(255,255,255,0.8) ${inner + 2}px,
+                transparent ${rimOuter + 8}px)`,
+              mask: `radial-gradient(circle at 50% 50%,
+                transparent ${inner - 2}px,
+                rgba(255,255,255,0.8) ${inner + 2}px,
+                transparent ${rimOuter + 8}px)`,
+            }}
+          />
+          {/* Сердцевина — вогнутая */}
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              width: inner * 2,
+              height: inner * 2,
+              background:
+                'radial-gradient(75% 75% at 50% 40%, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 35%, rgba(0,0,0,0.65) 100%)',
+              boxShadow: 'inset 0 8px 20px rgba(0,0,0,0.55)',
+            }}
+          />
+        </div>
+      );
+    })();
+
     return (
       <div className="absolute inset-0 rounded-full pointer-events-none">
-        {layers}
+        {baseLayer}
+        {glassLayer}
+        {tintLayer}
+        {gapsLayer}
+        {innerShadow}
+        {centerLayers}
       </div>
     );
   },
 
+  // ─────────────────────────────────────────────────────────
+  // СЛОИ ПОСЛЕ ИКОНОК (сейчас не нужны)
   afterIcons() {
-    // сейчас ничего поверх иконок не рисуем
     return null;
   },
 
+  // ─────────────────────────────────────────────────────────
+  // ОБЁРТКА ПОДПИСИ (надпись поверх центра)
   CenterLabelWrap(_g, _p, children) {
-    // Лейбл идёт ПОСЛЕ beforeIcons → всегда сверху центра (и над эмблемой)
     return (
       <div className="relative z-[2] text-[--fg-strong] font-semibold tracking-wide">
         {children}
@@ -354,15 +379,65 @@ export const pokerSkin = {
     );
   },
 
-  decorateIcon(node, { isActive }) {
-    // Мягкий акцент активной иконки (без смены её цвета)
+  // ─────────────────────────────────────────────────────────
+  // ДЕКОР АКТИВНОЙ ИКОНКИ
+  decorateIcon(node, { isActive, skinProps }) {
+    const a = skinProps?.activeIcon || {};
+    const {
+      ringEnabled = true,
+      ringAlpha = 0.18,
+      ringRadiusPx = 20,
+      ringSoftPx = 10,
+      scale = 1.2,
+      glow = 0.30,
+      insetGlow = 0.12,
+      glyph = 'inherit',
+      activeGlyphColor = 'var(--gold, #D4AF37)',
+    } = a;
+
     if (!isActive) return node;
+
+    const coloredNode =
+      glyph === 'gold' || glyph === 'custom'
+        ? React.cloneElement(node, {
+            style: {
+              ...(node.props?.style || {}),
+              color: glyph === 'gold' ? 'var(--gold, #D4AF37)' : activeGlyphColor,
+            },
+          })
+        : node;
+
+    const ring = ringEnabled ? (
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ transform: 'translateZ(0)' }}
+        aria-hidden
+      >
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            width: ringRadiusPx * 2,
+            height: ringRadiusPx * 2,
+            background: `radial-gradient(circle, rgba(212,175,55,${ringAlpha}) 0%, rgba(212,175,55,0) ${ringSoftPx}px 100%)`,
+          }}
+        />
+      </div>
+    ) : null;
+
     return (
       <div
-        className="rounded-full"
-        style={{ boxShadow: '0 0 10px rgba(212,175,55,0.28), inset 0 0 6px rgba(255,255,255,0.12)' }}
+        className="relative rounded-full"
+        style={{
+          transform: `scale(${scale})`,
+          boxShadow: `
+            0 0 10px rgba(212,175,55,${glow}),
+            inset 0 0 6px rgba(255,255,255,${insetGlow})
+          `,
+          transition: 'transform 160ms ease, box-shadow 160ms ease',
+        }}
       >
-        {node}
+        {ring}
+        {coloredNode}
       </div>
     );
   },
