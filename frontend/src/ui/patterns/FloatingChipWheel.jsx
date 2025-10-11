@@ -48,6 +48,15 @@ export function FloatingChipWheel({
   showDragIndicator = true, // дуга при перетягивании (для простых скинов)
 
   // ───────────────────────────────────────────────────────────────
+  // 🔔 ОТКЛИК
+  haptics = 'auto',         // true | false | 'auto' — 'auto' включает vibrate(8) при наличии API
+  sound = false,            // false | { src, volume?: number } — короткий щелчок при снапе
+
+  soundMaster = 0.5,        // 0..1 — общий уровень звука (доп. аттенюатор, особенно полезен на iOS)
+
+
+
+  // ───────────────────────────────────────────────────────────────
   // 🎨 СКИН
   skin = 'poker',       // 'glass' | 'poker'
   skinProps = {},       // параметры скина (цвета/ширины/центр/акцент активной иконки и пр.)
@@ -93,6 +102,27 @@ export function FloatingChipWheel({
   const rafRef = useRef(null);
   const [animating, setAnimating] = useState(false);
 
+  // Web Audio (синтез)
+  const audioCtxRef = useRef(null);     // AudioContext
+  const masterGainRef = useRef(null);   // общий уровень
+  const tickGainRef = useRef(null);     // уровень "tick"
+  const snapGainRef = useRef(null);     // уровень "snap"
+
+  // Тики при проходе целых шагов
+  const lastIntRef = useRef(null);      // последний целочисленный шаг
+  const lastTickTimeRef = useRef(0);
+  const TICK_COOLDOWN_MS = 60;          // анти-спам для тиков
+
+
+
+  const hasUserInteractedRef = useRef(false); // был ли реальный жест пользователя
+
+  // Отклик: звук + троттлинг
+
+  const lastSnapTickRef = useRef(0);        // timestamp последнего отклика
+  const SNAP_FEEDBACK_MIN_MS = 120;         // троттлинг отклика
+
+
   // Лок внешней синхры на ожидаемый id + settle-пауза
   const lockTargetIdRef = useRef(null);
   const lockTimerRef = useRef(null);
@@ -101,6 +131,133 @@ export function FloatingChipWheel({
   const settleMs = 250;
 
   const pickStep = (s) => Math.round(s);
+
+
+
+  // Платформенная коррекция (iOS звучит громче — слегка приглушим)
+  const isIOS = typeof navigator !== 'undefined'
+    ? /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
+    : false;
+
+  // Расчёт уровней с учётом master и платформы
+  const getLevels = () => {
+    const master = typeof soundMaster === 'number' ? Math.max(0, Math.min(1, soundMaster)) : 0.5;
+    const platform = isIOS ? 0.6 : 1.0; // мягкий -4 dB примерно для iOS
+    const baseSnap = (sound && typeof sound.snap === 'number') ? sound.snap : 0.6;
+    const baseTick = (sound && typeof sound.tick === 'number') ? sound.tick : 0.25;
+    return {
+      master: master * platform,
+      snap: baseSnap * master * platform,
+      tick: baseTick * master * platform,
+    };
+  };
+
+
+  // Инициализация AudioContext и гейнов
+  const ensureAudio = () => {
+    if (audioCtxRef.current) return audioCtxRef.current;
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    const ctx = new Ctx();
+
+    const master = ctx.createGain();
+
+
+    const L = getLevels();
+    master.gain.value = L.master;
+
+
+    master.connect(ctx.destination);
+
+    const tickG = ctx.createGain();
+
+    tickG.gain.value = getLevels().tick;
+
+
+    tickG.connect(master);
+
+    const snapG = ctx.createGain();
+
+    snapG.gain.value = getLevels().snap;
+
+
+    snapG.connect(master);
+
+    audioCtxRef.current = ctx;
+    masterGainRef.current = master;
+    tickGainRef.current = tickG;
+    snapGainRef.current = snapG;
+    return ctx;
+  };
+
+  // Небольшой клик синтезом: короткий высокочастотный импульс
+  const synthClick = (type = 'snap') => {
+
+    const ctx = ensureAudio();
+    if (!ctx) return;
+
+    // выбираем параметры
+    const isSnap = type === 'snap';
+    const freq   = isSnap ? 1900 : 2400; // Гц
+    const durMs  = isSnap ? 28   : 16;   // длительность
+    const gNode  = isSnap ? snapGainRef.current : tickGainRef.current;
+
+
+    if (!gNode) return;
+    // подхватываем актуальные уровни на каждый щелчок
+    const L = getLevels();
+    gNode.gain.value = (type === 'snap') ? L.snap : L.tick;
+
+
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(1, ctx.currentTime);
+    // быстрый экспоненциальный спад
+    env.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durMs / 1000);
+
+    osc.connect(env).connect(gNode);
+    osc.start();
+    osc.stop(ctx.currentTime + durMs / 1000);
+  };
+
+
+
+
+  // Мягкий отклик (вибро + опциональный звук) с троттлингом
+
+
+  const playSnapFeedback = () => {
+    const now = performance.now();
+    // троттлинг только для звука (snap можно без троттлинга, но оставим общий)
+    if (now - (lastSnapTickRef.current || 0) < SNAP_FEEDBACK_MIN_MS) return;
+    lastSnapTickRef.current = now;
+
+    // Haptics — только после реального взаимодействия, иначе Intervention
+    const wantHaptics = hasUserInteractedRef.current && (haptics === true || (haptics === 'auto' && 'vibrate' in navigator));
+    if (wantHaptics) { try { navigator.vibrate?.(8); } catch {} }
+
+    // Звук "snap" — синтезом, без файлов
+    synthClick('snap');
+
+
+  };
+
+
+
+  // Подхватываем новые уровни, если изменились пропсы sound/soundMaster
+  useEffect(() => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const L = getLevels();
+    if (masterGainRef.current) masterGainRef.current.gain.value = L.master;
+    if (tickGainRef.current)   tickGainRef.current.gain.value   = L.tick;
+    if (snapGainRef.current)   snapGainRef.current.gain.value   = L.snap;
+  }, [sound, soundMaster]);
+
+
 
   // ───────────────────────────────────────────────────────────────
   // Анимация
@@ -150,6 +307,10 @@ export function FloatingChipWheel({
 
     interactionLockRef.current = true;
     if (interactionTimerRef.current) clearTimeout(interactionTimerRef.current);
+
+    // Мягкий щелчок-снап
+    playSnapFeedback();
+
 
     if (id && id !== activeId) onSelect?.(id);
 
@@ -205,6 +366,24 @@ export function FloatingChipWheel({
       startStepRef.current = stepF.current;
 
       snapCandidateRef.current = pickStep(stepF.current);
+
+      hasUserInteractedRef.current = true;
+      lastIntRef.current = Math.floor(stepF.current);
+
+
+      hasUserInteractedRef.current = true;
+
+
+      // Разрешаем аудио при первом пользовательском взаимодействии
+      if (sound && !audioArmedRef.current) {
+
+        // Инициализируем/разбуживаем Web Audio при первом взаимодействии
+        ensureAudio();
+        audioCtxRef.current?.resume?.();
+
+      }
+
+
     };
 
     const onMove = (e) => {
@@ -232,6 +411,25 @@ export function FloatingChipWheel({
 
       const deltaStep = deltaDeg / step;
       const nextStepF = startStepRef.current + deltaStep;
+
+      // "tick": когда пересекаем следующий целый шаг
+      if (startedRef.current) {
+        const nextInt = Math.floor(nextStepF);
+        if (lastIntRef.current === null) lastIntRef.current = Math.floor(startStepRef.current);
+        if (nextInt !== lastIntRef.current) {
+          const tNow = performance.now();
+          if (tNow - (lastTickTimeRef.current || 0) > TICK_COOLDOWN_MS) {
+            synthClick('tick');
+
+            lastTickTimeRef.current = tNow;
+          }
+          lastIntRef.current = nextInt;
+        }
+      }
+
+
+
+
 
       setStepF(nextStepF);
       snapCandidateRef.current = pickStep(nextStepF);

@@ -1,111 +1,3 @@
-//// frontend/src/app/pages/Home.jsx
-//import React from 'react';
-//import { Hero } from '@/app/sections/Hero';
-//import { ValueProps } from '@/app/sections/ValueProps';
-//import { CalendarPreview } from '@/app/sections/CalendarPreview';
-//import { RatingPreview } from '@/app/sections/RatingPreview';
-//import { GalleryCta } from '@/app/sections/GalleryCta';
-//import { SectionSeparator } from '@/ui/layout/SectionSeparator';
-//import { MobileChipTabs } from '@/ui/patterns/MobileChipTabs';
-//import { SectionAnchor } from '@/ui/patterns/SectionAnchor';
-//import { useSectionNav } from '@/hooks/useSectionNav';
-//import { SECTIONS } from '@/ui/navigation/sections';
-//import { FloatingChipWheel } from '@/ui/patterns/FloatingChipWheel';
-//
-//export function Home({ onOpenTournaments }) {
-//  const ids = SECTIONS.map(s => s.id);
-//  const { activeId, scrollTo, register } = useSectionNav(ids);
-//
-//  const mobileChipItems = SECTIONS.map(s => ({
-//    id: s.id,
-//    label: s.label,
-//    icon: s.Icon ? <s.Icon className="w-4 h-4" aria-hidden="true" /> : null,
-//  }));
-//
-//  return (
-//    <div className="space-y-0">
-//      <SectionAnchor id="hero" register={register}>
-//        <Hero onOpenTournaments={onOpenTournaments} />
-//      </SectionAnchor>
-//
-//      <SectionSeparator thickness="2px" />
-//      <SectionAnchor id="about" register={register}>
-//        <ValueProps />
-//      </SectionAnchor>
-//
-//      <SectionSeparator thickness="2px" />
-//      <SectionAnchor id="calendar" register={register}>
-//        <CalendarPreview onOpenTournaments={onOpenTournaments} />
-//      </SectionAnchor>
-//
-//      <SectionSeparator thickness="2px" />
-//      <SectionAnchor id="rating" register={register}>
-//        <RatingPreview />
-//      </SectionAnchor>
-//
-//      <SectionSeparator thickness="2px" />
-//      <SectionAnchor id="gallery" register={register}>
-//        <GalleryCta />
-//      </SectionAnchor>
-//
-//      <div className="sm:hidden">
-//        <MobileChipTabs
-//          items={mobileChipItems}
-//          activeId={activeId}
-//          onTabClick={scrollTo}
-//        />
-//      </div>
-//
-//      {/* Круговая «фишка» */}
-//      <FloatingChipWheel
-//        items={mobileChipItems}
-//        activeId={activeId}
-//        onSelect={scrollTo}
-//        dock="br"
-//        stepDeg={36}          // временно фикс: чётное число визуальных клиньев — стабильно
-//        skin="poker"
-//        skinProps={{
-//          palette: 'silver',
-//          center: 'bezel',
-//          // подложка: пусть совпадает с красным клином (как на скрине)
-//          underDiskEnabled: true,
-//          underDiskMatch: 'red',      // ← «как клинья» (можно 'red', 'ivory' или 'none')
-//          underDiskExtraPx: 11,
-//          underDiskBlurPx: 12,
-//          underDiskInsetDark: 0.65,
-//          underDiskInsetLight: 0.24,
-//          underDiskBrightness: 1.2,
-//          centerInsetLight: 0.12,
-////          centerDropDarkAlpha: 1.28,
-////          centerDropDarkBlur: 12,
-//          centerDropLightAlpha: 0.12,
-//          centerDropLightBlur: 12,
-//          centerInvertShading: false,
-////          cupRimThicknessPx: 3,
-////          underDiskFill: 'var(--brand-crimson)',
-////          cupRimGlow: 0.80,
-//
-//          cupInnerR: 75,
-//
-//          // стекло/клинья — как у тебя:
-//          rimWidth: 30,
-//          gapDeg: 1,
-//          phaseDeg: 0,
-//          overlapDeg: 0.0,
-//          blurPx: 8, saturate: 1.12, brighten: 1.04,
-//          showGaps: true, gapAlpha: 0.28,
-//        }}
-//        labelClassName="text-left text-m px-2 py-1"
-//      />
-//    </div>
-//  );
-//}
-
-
-
-
-
-
 // frontend/src/app/pages/Home.jsx
 import React from 'react';
 import { Hero } from '@/app/sections/Hero';
@@ -194,6 +86,14 @@ export function Home({ onOpenTournaments }) {
         // labelOffset={{ x: -12, y: -18 }} // смещение подписи (дефолт)
         labelClassName="text-left text-m px-2 py-1"
 
+
+        /* 🔉 Щелчки */
+//        sound={{ src: '/sounds/snap-click.mp3', volume: 0.05 }}
+        sound={{ enabled: true, snap: 0.15, tick: 0.02 }}
+
+
+
+
         /* ✋ ЖЕСТЫ / ПОВЕДЕНИЕ */
         // enableSwipe={true}         // свайп по дуге (дефолт true)
         // deadzonePx={6}             // порог старта драга (дефолт 6)
@@ -254,6 +154,11 @@ export function Home({ onOpenTournaments }) {
           brighten: 1.04,           // яркость фона под стеклом
           showGaps: true,           // рисовать тонкие разделители поверх узора
           gapAlpha: 0.28,           // прозрачность разделителей
+
+
+
+
+
 
           /* ✨ Активная иконка — настройки в pokerSkin.jsx (activeIcon):
              по умолчанию: золотая мягкая подложка, лёгкий glow и scale.
