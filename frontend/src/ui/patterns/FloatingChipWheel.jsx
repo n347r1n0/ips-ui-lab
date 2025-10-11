@@ -54,6 +54,13 @@ export function FloatingChipWheel({
 
   soundMaster = 0.5,        // 0..1 — общий уровень звука (доп. аттенюатор, особенно полезен на iOS)
 
+  // ───────────────────────────────────────────────────────────────
+  // 🔘 КЛИКАБЕЛЬНАЯ ПОДПИСЬ
+  enableLabelMenu = true,   // включить меню выбора секций по клику на лейбл
+  menuMaxHeight = '38vh',   // максимальная высота меню 
+  onMenuOpen,               // () => void — колбек при открытии меню
+  onMenuClose,              // () => void — колбек при закрытии меню
+
 
 
   // ───────────────────────────────────────────────────────────────
@@ -116,6 +123,8 @@ export function FloatingChipWheel({
 
 
   const hasUserInteractedRef = useRef(false); // был ли реальный жест пользователя
+  const audioArmedRef = useRef(false);       // AudioContext создан/разбужен в рамках жеста
+
 
   // Отклик: звук + троттлинг
 
@@ -130,7 +139,27 @@ export function FloatingChipWheel({
   const interactionTimerRef = useRef(null);
   const settleMs = 250;
 
+  // Доступ к unlockBody вне эффекта жестов
+  const unlockBodyRef = useRef(() => {});
+
+
+  // Состояние меню
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const labelRef = useRef(null);
+  const menuId = `floating-wheel-menu-${Math.random().toString(36).substr(2, 9)}`;
+
   const pickStep = (s) => Math.round(s);
+
+
+  // Текущий индекс иконки (нужен до эффектов меню)
+  const currentIndex = useMemo(() => {
+    const refStep =
+      (committedStepRef.current !== null)
+        ? committedStepRef.current
+        : (draggingRef.current ? snapCandidateRef.current : Math.round(stepF.current));
+    return ((refStep % N) + N) % N;
+  }, [stepFState, N]);
 
 
 
@@ -191,10 +220,12 @@ export function FloatingChipWheel({
   };
 
   // Небольшой клик синтезом: короткий высокочастотный импульс
-  const synthClick = (type = 'snap') => {
 
-    const ctx = ensureAudio();
+  const synthClick = (type = 'snap') => {
+    const ctx = audioCtxRef.current; // не создаём контекст здесь
     if (!ctx) return;
+
+
 
     // выбираем параметры
     const isSnap = type === 'snap';
@@ -247,15 +278,18 @@ export function FloatingChipWheel({
 
 
 
+
   // Подхватываем новые уровни, если изменились пропсы sound/soundMaster
+  // ВАЖНО: здесь НЕЛЬЗЯ создавать AudioContext, только обновлять, если он уже есть.
   useEffect(() => {
-    const ctx = ensureAudio();
+    const ctx = audioCtxRef.current; // ← не вызываем ensureAudio()
     if (!ctx) return;
     const L = getLevels();
     if (masterGainRef.current) masterGainRef.current.gain.value = L.master;
     if (tickGainRef.current)   tickGainRef.current.gain.value   = L.tick;
     if (snapGainRef.current)   snapGainRef.current.gain.value   = L.snap;
   }, [sound, soundMaster]);
+
 
 
 
@@ -324,6 +358,53 @@ export function FloatingChipWheel({
   };
 
   // ───────────────────────────────────────────────────────────────
+  // Меню выбора секций
+
+  const openMenu = () => {
+    if (!enableLabelMenu) return;
+    if (draggingRef.current || startedRef.current) {
+      draggingRef.current = false;
+      startedRef.current = false;
+      unlockBodyRef.current?.();
+    }
+    setIsMenuOpen(true);
+    onMenuOpen?.();
+  };
+
+  const closeMenu = () => {
+    if (!isMenuOpen) return;
+    setIsMenuOpen(false);
+    onMenuClose?.();
+  };
+
+  const handleLabelClick = (e) => {
+    if (!enableLabelMenu || animating || draggingRef.current) return;
+    e.stopPropagation();
+    if (isMenuOpen) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  };
+
+  const handleMenuItemClick = (targetIdx) => {
+    if (!isMenuOpen || animating) return;
+    closeMenu();
+    
+    // Найти ближайший логический шаг для данного индекса
+    const s = stepF.current;
+    let best = targetIdx;
+    let bestDist = Infinity;
+    for (let k = -1; k <= 1; k++) {
+      const cand = targetIdx + k * N;
+      const dist = Math.abs(cand - s);
+      if (dist < bestDist) { bestDist = dist; best = cand; }
+    }
+    
+    snapTo(best);
+  };
+
+  // ───────────────────────────────────────────────────────────────
   // Жесты
   useEffect(() => {
     const root = rootRef.current;
@@ -350,8 +431,13 @@ export function FloatingChipWheel({
       document.body.style.overscrollBehaviorY = prevOver;
     };
 
+    // прокидываем ссылку наружу
+    unlockBodyRef.current = unlockBody;
+
+
+
     const onDown = (e) => {
-      if (animating) return;
+      if (animating || isMenuOpen) return;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
       root.setPointerCapture?.(e.pointerId);
@@ -374,20 +460,24 @@ export function FloatingChipWheel({
       hasUserInteractedRef.current = true;
 
 
-      // Разрешаем аудио при первом пользовательском взаимодействии
-      if (sound && !audioArmedRef.current) {
 
-        // Инициализируем/разбуживаем Web Audio при первом взаимодействии
-        ensureAudio();
-        audioCtxRef.current?.resume?.();
-
+      // Разбудим Web Audio строго в рамках первого жеста пользователя
+      if (!audioArmedRef.current) {
+        try {
+          const ctx = ensureAudio();
+          if (ctx && ctx.state !== 'running') {
+            ctx.resume?.().catch(() => {});
+          }
+          audioArmedRef.current = true;
+        } catch {}
       }
+
 
 
     };
 
     const onMove = (e) => {
-      if (!draggingRef.current || animating) return;
+      if (!draggingRef.current || animating || isMenuOpen) return;
 
       const rect = root.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
@@ -436,7 +526,7 @@ export function FloatingChipWheel({
     };
 
     const onEnd = () => {
-      if (!draggingRef.current) return;
+      if (!draggingRef.current || isMenuOpen) return;
       draggingRef.current = false;
 
       if (startedRef.current) {
@@ -460,8 +550,53 @@ export function FloatingChipWheel({
       root.removeEventListener('pointerup', onEnd);
       root.removeEventListener('pointercancel', onEnd);
       root.removeEventListener('pointerleave', onEnd);
+      // drop external unlock reference
+      unlockBodyRef.current = () => {};
     };
-  }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, animating]);
+  }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, animating, isMenuOpen]);
+
+  // ───────────────────────────────────────────────────────────────
+  // Обработка меню
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMenu();
+      }
+    };
+
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) &&
+          labelRef.current && !labelRef.current.contains(e.target)) {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('pointerdown', handleClickOutside, true);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('pointerdown', handleClickOutside, true);
+
+    };
+  }, [isMenuOpen]);
+
+  // Автоскролл к активному элементу при открытии меню
+  useEffect(() => {
+    if (!isMenuOpen || !menuRef.current) return;
+    
+    const activeElement = menuRef.current.querySelector('[data-active="true"]');
+    if (activeElement) {
+      activeElement.scrollIntoView({ 
+        block: 'nearest', 
+        inline: 'nearest', 
+        behavior: 'smooth' 
+      });
+    }
+  }, [isMenuOpen, currentIndex]);
 
   // ───────────────────────────────────────────────────────────────
   // Внешняя синхронизация
@@ -514,13 +649,7 @@ export function FloatingChipWheel({
     return arr;
   }, [stepFState, step, center, N, clean]);
 
-  const currentIndex = useMemo(() => {
-    const refStep =
-      (committedStepRef.current !== null)
-        ? committedStepRef.current
-        : (draggingRef.current ? snapCandidateRef.current : Math.round(stepF.current));
-    return ((refStep % N) + N) % N;
-  }, [stepFState, N]);
+
 
   // Геометрия для скина
   const base = Math.floor(stepF.current);
@@ -549,6 +678,8 @@ export function FloatingChipWheel({
           decorateIcon: (node/*, ctx*/) => node,
         };
 
+  const visibilityClass = hideOnDesktop ? 'sm:hidden' : '';
+
   const renderIcon = (it) => {
     if (it.icon) {
       return React.cloneElement(it.icon, {
@@ -559,8 +690,6 @@ export function FloatingChipWheel({
     if (it.Icon) return <it.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" />;
     return null;
   };
-
-  const visibilityClass = hideOnDesktop ? 'sm:hidden' : '';
 
   return (
     <div
@@ -586,23 +715,111 @@ export function FloatingChipWheel({
           className="absolute left-1/2 top-1/2"
           style={{
             transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
-            pointerEvents: 'none',
+            pointerEvents: enableLabelMenu ? 'auto' : 'none',
           }}
         >
           {skinImpl.CenterLabelWrap
             ? skinImpl.CenterLabelWrap(
                 geometry,
                 skinProps,
-                <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
-                  {clean[currentIndex]?.label}
-                </div>
+                enableLabelMenu ? (
+                  <button
+                    ref={labelRef}
+                    type="button"
+                    onClick={handleLabelClick}
+                    className={twMerge(
+                      'text-center px-4 py-2 rounded-full text-[--fg-strong] transition-colors',
+                      'cursor-pointer hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
+                      labelClassName
+                    )}
+                    aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
+                    aria-expanded={isMenuOpen}
+                    aria-haspopup="menu"
+                    aria-controls={menuId}
+                  >
+                    {clean[currentIndex]?.label}
+                  </button>
+                ) : (
+                  <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
+                    {clean[currentIndex]?.label}
+                  </div>
+                )
               )
             : (
-                <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
-                  {clean[currentIndex]?.label}
-                </div>
+                enableLabelMenu ? (
+                  <button
+                    ref={labelRef}
+                    type="button"
+                    onClick={handleLabelClick}
+                    className={twMerge(
+                      'text-center px-4 py-2 rounded-full text-[--fg-strong] transition-colors',
+                      'cursor-pointer hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
+                      labelClassName
+                    )}
+                    aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
+                    aria-expanded={isMenuOpen}
+                    aria-haspopup="menu"
+                    aria-controls={menuId}
+                  >
+                    {clean[currentIndex]?.label}
+                  </button>
+                ) : (
+                  <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
+                    {clean[currentIndex]?.label}
+                  </div>
+                )
               )}
         </div>
+
+        {/* Поповер-меню выбора секций */}
+        {enableLabelMenu && isMenuOpen && (
+          <div
+            ref={menuRef}
+            id={menuId}
+            className={twMerge(
+              'absolute left-1/2 top-1/2 z-[60] w-64 pointer-events-auto',
+              'rounded-[calc(var(--radius)*0.75)]',
+              'bg-[--glass-bg] border border-[--glass-border]',
+              'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
+              'transition-opacity transition-transform duration-150 ease-out',
+              'opacity-100 scale-100',
+              'motion-reduce:transition-none'
+            )}
+            style={{
+              transform: 'translate(-50%, calc(-50% - 10px))',
+              maxHeight: menuMaxHeight,
+            }}
+            role="menu"
+            aria-label="Section selection menu"
+          >
+            <div className="py-2 max-h-full overflow-y-auto">
+              {clean.map((item, idx) => {
+                const isActive = idx === currentIndex;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleMenuItemClick(idx)}
+                    data-active={isActive}
+                    className={twMerge(
+                      'w-full flex items-center gap-3 px-4 py-3 text-left relative',
+                      'hover:bg-white/8 focus:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
+                      'transition-colors duration-75',
+                      isActive ? 'bg-white/12 text-[--fg-strong] border-l-2 border-[--gold]' : 'text-[--fg] border-l-2 border-transparent'
+                    )}
+                    role="menuitem"
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                      {renderIcon(item)}
+                    </div>
+                    <span className="flex-1 truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Иконки — бесшовная лента c декорацией скина */}
         {visibleIcons.map(({ key, idx, angle, logicalStep }) => {
