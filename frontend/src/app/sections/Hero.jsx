@@ -3,11 +3,12 @@
 import React from 'react';
 import { Button } from '@/ui/primitives/Button';
 import { Card } from '@/ui/surfaces/Card';
+import { AccordionPill } from '@/ui/patterns/AccordionPill';
 
 export function Hero({ onOpenTournaments }) {
   return (
     <section className="mb-16">
-      <Card variant="glass" padding="lg" elevation="m" className="relative overflow-hidden">
+      <Card variant="glass" padding="lg" elevation="m" className="relative overflow-visible">
         {/* Subtle gold accent element */}
         <div
           aria-hidden="true"
@@ -21,7 +22,7 @@ export function Hero({ onOpenTournaments }) {
           <p className="mt-6 text-lg md:text-xl text-[--fg] opacity-90 max-w-3xl leading-relaxed">
             Приватный клуб спортивного покера. Лучшие условия, стиль и сообщество.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-4">
+          <div className="mt-8 mb-14 sm:mb-16 flex flex-col sm:flex-row gap-4">
             <Button 
               onClick={onOpenTournaments}
               className="text-base px-8 py-3 font-medium"
@@ -36,6 +37,12 @@ export function Hero({ onOpenTournaments }) {
               <a href="#calendar">Календарь</a>
             </Button>
           </div>
+
+          {/* Аккордеон-пилюля: располагается под блоком кнопок, раскрывается ВВЕРХ и перекрывает их */}
+          <div className="mt-4 relative">
+            <AccordionPill />
+          </div>
+
         </div>
       </Card>
     </section>

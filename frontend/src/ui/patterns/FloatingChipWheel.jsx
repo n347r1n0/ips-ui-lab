@@ -1,6 +1,6 @@
 // frontend/src/ui/patterns/FloatingChipWheel.jsx
 
-import React, { useMemo, useRef, useState, useEffect } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { pokerSkin } from '@/ui/skins/wheels/pokerSkin';
 
@@ -63,6 +63,18 @@ export function FloatingChipWheel({
 
 
 
+
+  // ───────────────────────────────────────────────────────────────
+  // ⚙️ ВАРИАНТ МЕНЮ ПОДПИСИ
+  labelMenuVariant = 'panel',   // 'panel' | 'compact' | 'accordion'
+  compactMaxItems = 6,          // максимум пунктов в компакт-списке (оставь 6; можно Infinity показать все)
+  compactOrder = 'clockwise',   // 'clockwise' | 'original' — порядок пунктов
+  compactDirection = 'auto',    // 'up' | 'down' | 'auto'
+  // compactAlign = 'center',      // 'center' (зарезервировано; на будущее: 'start'|'end')
+  compactGutter = 8,            // отступ от пилюли до компакт-списка (px)
+  compactItemHeight = 40,       // высота строки в компакт-списке (px) — только для расчётов
+
+
   // ───────────────────────────────────────────────────────────────
   // 🎨 СКИН
   skin = 'poker',       // 'glass' | 'poker'
@@ -72,7 +84,6 @@ export function FloatingChipWheel({
   // Подготовка данных
   const clean = useMemo(() => items.filter(Boolean), [items]);
   const N = clean.length;
-  if (N === 0) return null;
 
   const autoStep = 360 / N;
   const step = typeof stepDeg === 'number' ? stepDeg : autoStep;
@@ -142,16 +153,6 @@ export function FloatingChipWheel({
   // Доступ к unlockBody вне эффекта жестов
   const unlockBodyRef = useRef(() => {});
 
-
-  // Состояние меню
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const menuRef = useRef(null);
-  const labelRef = useRef(null);
-  const menuId = `floating-wheel-menu-${Math.random().toString(36).substr(2, 9)}`;
-
-  const pickStep = (s) => Math.round(s);
-
-
   // Текущий индекс иконки (нужен до эффектов меню)
   const currentIndex = useMemo(() => {
     const refStep =
@@ -161,6 +162,27 @@ export function FloatingChipWheel({
     return ((refStep % N) + N) % N;
   }, [stepFState, N]);
 
+
+
+  // Состояние меню
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+  const labelRef = useRef(null);
+
+  // высота пилюли — чтобы список «прилипал» точно к ней
+  const [labelH, setLabelH] = useState(0);
+
+  useLayoutEffect(() => {
+    if (labelRef.current) {
+      setLabelH(labelRef.current.offsetHeight || 0);
+    }
+  }, [isMenuOpen, labelMenuVariant, labelClassName, labelOffset, currentIndex]);
+
+
+
+  const menuId = `floating-wheel-menu-${Math.random().toString(36).substr(2, 9)}`;
+
+  const pickStep = (s) => Math.round(s);
 
 
   // Платформенная коррекция (iOS звучит громче — слегка приглушим)
@@ -268,7 +290,7 @@ export function FloatingChipWheel({
 
     // Haptics — только после реального взаимодействия, иначе Intervention
     const wantHaptics = hasUserInteractedRef.current && (haptics === true || (haptics === 'auto' && 'vibrate' in navigator));
-    if (wantHaptics) { try { navigator.vibrate?.(8); } catch {} }
+    if (wantHaptics) { try { navigator.vibrate?.(8); } catch {/* ignore haptics errors */} }
 
     // Звук "snap" — синтезом, без файлов
     synthClick('snap');
@@ -469,7 +491,7 @@ export function FloatingChipWheel({
             ctx.resume?.().catch(() => {});
           }
           audioArmedRef.current = true;
-        } catch {}
+        } catch {/* ignore audio context errors */}
       }
 
 
@@ -678,7 +700,65 @@ export function FloatingChipWheel({
           decorateIcon: (node/*, ctx*/) => node,
         };
 
+
+
+
+  // Компактный порядок пунктов: начиная со следующего по часовой от активного
+  const compactItems = useMemo(() => {
+    if (!clean.length) return [];
+    const total = clean.length;
+    const start = (currentIndex + 1 + total) % total;
+
+    let ordered;
+    if (compactOrder === 'clockwise') {
+      ordered = Array.from({ length: total - 1 }, (_, i) => clean[(start + i) % total]);
+    } else {
+      // 'original' — исходный порядок без активного
+      ordered = clean.filter((_, idx) => idx !== currentIndex);
+    }
+
+    if (Number.isFinite(compactMaxItems)) {
+      return ordered.slice(0, compactMaxItems);
+    }
+    return ordered;
+  }, [clean, currentIndex, compactOrder, compactMaxItems]);
+
+
+
+  // База: центр колеса + labelOffset (как у подписи)
+  const labelBaseTranslate =
+    `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`;
+
+  // Направление открытия для compact
+  const compactDir = useMemo(() => {
+    if (compactDirection === 'auto') {
+      // если колесо докнуто снизу — открываем вверх, сверху — вниз
+      return anchor.ty === +1 ? 'up' : 'down';
+    }
+    return compactDirection;
+  }, [compactDirection, anchor]);
+
+  // Компакт: от пилюли вверх/вниз на compactGutter
+  const compactTranslate =
+  `${labelBaseTranslate} translateY(${compactDir === 'up' ? -compactGutter : compactGutter}px)`;
+
+  // отдельный трансформ для аккордеона — отталкиваемся от реального края пилюли
+  const accordionTranslate =
+    `${labelBaseTranslate} translateY(${compactDir === 'up' ? -(labelH / 2 + compactGutter) : (labelH / 2 + compactGutter)}px)`;
+
+
+
+  // ── параметры аккордеона (используем тот же набор пунктов, что и compact)
+  const accordionItems = compactItems;
+  const accordionRows = Number.isFinite(compactMaxItems)
+    ? Math.min(accordionItems.length, compactMaxItems)
+    : accordionItems.length;
+  const accordionListMaxH = accordionRows * (compactItemHeight || 40);
+
+
+
   const visibilityClass = hideOnDesktop ? 'sm:hidden' : '';
+
 
   const renderIcon = (it) => {
     if (it.icon) {
@@ -690,6 +770,9 @@ export function FloatingChipWheel({
     if (it.Icon) return <it.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" />;
     return null;
   };
+
+  // Early return after all hooks
+  if (N === 0) return null;
 
   return (
     <div
@@ -705,7 +788,7 @@ export function FloatingChipWheel({
           'border border-[--glass-border]',
           'shadow-[var(--shadow-m)]'
         )}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, overflow: 'visible' }}
       >
         {/* skin: фон/обод/клинья до иконок */}
         {skinImpl.beforeIcons?.(geometry, skinProps)}
@@ -717,6 +800,7 @@ export function FloatingChipWheel({
             transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
             pointerEvents: enableLabelMenu ? 'auto' : 'none',
           }}
+          ref={labelMenuVariant === 'accordion' ? menuRef : null}
         >
           {skinImpl.CenterLabelWrap
             ? skinImpl.CenterLabelWrap(
@@ -728,16 +812,29 @@ export function FloatingChipWheel({
                     type="button"
                     onClick={handleLabelClick}
                     className={twMerge(
-                      'text-center px-4 py-2 rounded-full text-[--fg-strong] transition-colors',
-                      'cursor-pointer hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
+                      'inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[--fg-strong]',
+                      'cursor-pointer transition-colors',
+                      'hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
                       labelClassName
                     )}
                     aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
                     aria-expanded={isMenuOpen}
-                    aria-haspopup="menu"
+                    aria-haspopup={labelMenuVariant === 'accordion' ? 'listbox' : 'menu'}
                     aria-controls={menuId}
                   >
-                    {clean[currentIndex]?.label}
+                    {/* Иконка активной секции — для accordion всегда видна, для compact только при открытии */}
+                    <span
+                      className={twMerge(
+                        'w-4 h-4 grid place-items-center',
+                        labelMenuVariant === 'accordion' ? 'opacity-100 scale-100' :
+                        labelMenuVariant === 'compact' && isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90',
+                        'transition-all duration-150'
+                      )}
+                      aria-hidden="true"
+                    >
+                      {renderIcon(clean[currentIndex])}
+                    </span>
+                    <span className="truncate">{clean[currentIndex]?.label}</span>
                   </button>
                 ) : (
                   <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
@@ -752,16 +849,29 @@ export function FloatingChipWheel({
                     type="button"
                     onClick={handleLabelClick}
                     className={twMerge(
-                      'text-center px-4 py-2 rounded-full text-[--fg-strong] transition-colors',
-                      'cursor-pointer hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
+                      'inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[--fg-strong]',
+                      'cursor-pointer transition-colors',
+                      'hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
                       labelClassName
                     )}
                     aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
                     aria-expanded={isMenuOpen}
-                    aria-haspopup="menu"
+                    aria-haspopup={labelMenuVariant === 'accordion' ? 'listbox' : 'menu'}
                     aria-controls={menuId}
                   >
-                    {clean[currentIndex]?.label}
+                    {/* Иконка активной секции — для accordion всегда видна, для compact только при открытии */}
+                    <span
+                      className={twMerge(
+                        'w-4 h-4 grid place-items-center',
+                        labelMenuVariant === 'accordion' ? 'opacity-100 scale-100' :
+                        labelMenuVariant === 'compact' && isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90',
+                        'transition-all duration-150'
+                      )}
+                      aria-hidden="true"
+                    >
+                      {renderIcon(clean[currentIndex])}
+                    </span>
+                    <span className="truncate">{clean[currentIndex]?.label}</span>
                   </button>
                 ) : (
                   <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
@@ -769,57 +879,216 @@ export function FloatingChipWheel({
                   </div>
                 )
               )}
-        </div>
-
-        {/* Поповер-меню выбора секций */}
-        {enableLabelMenu && isMenuOpen && (
-          <div
-            ref={menuRef}
-            id={menuId}
-            className={twMerge(
-              'absolute left-1/2 top-1/2 z-[60] w-64 pointer-events-auto',
-              'rounded-[calc(var(--radius)*0.75)]',
-              'bg-[--glass-bg] border border-[--glass-border]',
-              'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
-              'transition-opacity transition-transform duration-150 ease-out',
-              'opacity-100 scale-100',
-              'motion-reduce:transition-none'
-            )}
-            style={{
-              transform: 'translate(-50%, calc(-50% - 10px))',
-              maxHeight: menuMaxHeight,
-            }}
-            role="menu"
-            aria-label="Section selection menu"
-          >
-            <div className="py-2 max-h-full overflow-y-auto">
-              {clean.map((item, idx) => {
-                const isActive = idx === currentIndex;
-                return (
+          
+          {/* Выпадающий список для accordion */}
+          {labelMenuVariant === 'accordion' && enableLabelMenu && (
+            <div
+              className={twMerge(
+                'absolute left-1/2 w-48 z-[70]',
+                'rounded-xl overflow-hidden',
+                'bg-[--glass-bg] border border-[--glass-border]',
+                'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
+                'transition-all duration-150 ease-out',
+                'motion-reduce:transition-none'
+              )}
+              style={{
+                transform: `translateX(-50%) translateY(${compactDir === 'up' ? `calc(-100% - ${compactGutter}px)` : `${labelH / 2 + compactGutter}px`}) scaleY(${isMenuOpen ? 1 : 0.96})`,
+                maxHeight: isMenuOpen ? `${accordionListMaxH}px` : '0px',
+                opacity: isMenuOpen ? 1 : 0,
+                transformOrigin: compactDir === 'up' ? 'bottom' : 'top'
+              }}
+              role="listbox"
+              aria-label="Section selection (accordion)"
+            >
+              <div className="overflow-y-auto" style={{ maxHeight: `${accordionListMaxH}px` }}>
+                {accordionItems.map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => handleMenuItemClick(idx)}
-                    data-active={isActive}
+                    onClick={() => {
+                      const idx = clean.findIndex(i => i.id === item.id);
+                      handleMenuItemClick(idx);
+                    }}
                     className={twMerge(
-                      'w-full flex items-center gap-3 px-4 py-3 text-left relative',
+                      'w-full flex items-center gap-3 px-3 text-left',
                       'hover:bg-white/8 focus:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
-                      'transition-colors duration-75',
-                      isActive ? 'bg-white/12 text-[--fg-strong] border-l-2 border-[--gold]' : 'text-[--fg] border-l-2 border-transparent'
+                      'transition-colors duration-75 text-[--fg] border-none'
                     )}
-                    role="menuitem"
-                    aria-current={isActive ? 'page' : undefined}
+                    role="option"
+                    style={{ height: `${compactItemHeight}px` }}
                   >
-                    <div className="w-5 h-5 flex-shrink-0 flex items-center justify-center">
+                    <div className="w-4 h-4 flex-shrink-0 grid place-items-center">
                       {renderIcon(item)}
                     </div>
-                    <span className="flex-1 truncate">{item.label}</span>
+                    <span className="truncate flex-1">{item.label}</span>
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+
+
+        {/* Меню выбора секций: panel | compact (accordion уже выше) */}
+        {enableLabelMenu && isMenuOpen && labelMenuVariant !== 'accordion' && (
+          (() => {
+            if (labelMenuVariant === 'panel') {
+              return (
+                <div
+                  ref={labelMenuVariant !== 'accordion' ? menuRef : null}
+                  id={menuId}
+                  className={twMerge(
+                    'absolute left-1/2 top-1/2 z-[60] w-56 pointer-events-auto',
+                    'rounded-xl',
+                    'bg-[--glass-bg] border border-[--glass-border]',
+                    'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
+                    'transition-opacity transition-transform duration-120 ease-out',
+                    'opacity-100 scale-100',
+                    'motion-reduce:transition-none'
+                  )}
+                  style={{
+                    // якорим панель к нижнему краю пилюли (или верхнему, если откроем вниз)
+                    transform: `${labelBaseTranslate} translateY(${-(labelH / 2 + 10)}px)`,
+                    maxHeight: menuMaxHeight,
+                  }}
+                  role="menu"
+                  aria-label="Section selection menu"
+                >
+                  <div className="py-1 max-h-full overflow-y-auto">
+                    {clean.map((item, idx) => {
+                      const isActive = idx === currentIndex;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleMenuItemClick(idx)}
+                          data-active={isActive}
+                          className={twMerge(
+                            'w-full flex items-center gap-2 px-3 py-2 text-left',
+                            'hover:bg-white/8 focus:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
+                            'transition-colors duration-75',
+                            isActive ? 'bg-white/10 text-[--fg-strong] border-l border-[--gold]' : 'text-[--fg]'
+                          )}
+                          role="menuitem"
+                          aria-current={isActive ? 'page' : undefined}
+                        >
+                          <div className="w-4 h-4 flex-shrink-0 grid place-items-center">
+                            {renderIcon(item)}
+                          </div>
+                          <span className="flex-1 truncate">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
+            if (labelMenuVariant === 'compact') {
+              return (
+                <div
+                  ref={labelMenuVariant !== 'accordion' ? menuRef : null}
+                  id={menuId}
+                  className={twMerge(
+                    'absolute left-1/2 top-1/2 z-[60] pointer-events-auto',
+                    'rounded-xl',
+                    'bg-[--glass-bg] border border-[--glass-border]',
+                    'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
+                    'px-2 py-2',
+                    'transition-opacity transition-transform duration-150 ease-out',
+                    'opacity-100 scale-100',
+                    'motion-reduce:transition-none'
+                  )}
+                  style={{ transform: compactTranslate }}
+                  role="menu"
+                  aria-label="Section selection menu (compact)"
+                >
+                  <div className="flex flex-col">
+                    {compactItems.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          const idx = clean.findIndex(i => i.id === item.id);
+                          handleMenuItemClick(idx);
+                        }}
+                        className={twMerge(
+                          'flex items-center gap-2 px-3 py-1.5 rounded-md text-left',
+                          'hover:bg-white/8 focus:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
+                          'transition-colors duration-75 text-[--fg]'
+                        )}
+                        role="menuitem"
+                      >
+                        <div className="w-4 h-4 flex-shrink-0 grid place-items-center">
+                          {renderIcon(item)}
+                        </div>
+                        <span className="whitespace-nowrap">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            }
+
+            // ───────── ACCORDION ─────────
+            return (
+              <div
+                ref={menuRef}
+                id={menuId}
+                className="absolute left-1/2 top-1/2 z-[60] pointer-events-auto"
+                style={{ transform: accordionTranslate }}
+                role="menu"
+                aria-label="Section selection menu (accordion)"
+              >
+                <div
+                  className={twMerge(
+                    'flex flex-col rounded-xl',
+                    'bg-[--glass-bg] border border-[--glass-border]',
+                    'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
+                    'overflow-y-auto'
+                  )}
+                  style={{
+                    maxHeight: accordionListMaxH,
+                    minWidth: 'max(148px, fit-content)',
+                  }}
+                >
+                  {accordionItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        const idx = clean.findIndex(i => i.id === item.id);
+                        handleMenuItemClick(idx);
+                      }}
+                      className={twMerge(
+                        'flex items-center gap-2 px-3 text-left',
+                        'hover:bg-white/8 focus:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
+                        'transition-colors duration-75 text-[--fg]'
+                      )}
+                      role="menuitem"
+                      style={{ height: compactItemHeight }}
+                    >
+                      <div className="w-4 h-4 flex-shrink-0 grid place-items-center">
+                        {renderIcon(item)}
+                      </div>
+                      <span className="whitespace-nowrap">{item.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()
         )}
+
+
+
+
+
+
+
+
+
+
 
         {/* Иконки — бесшовная лента c декорацией скина */}
         {visibleIcons.map(({ key, idx, angle, logicalStep }) => {

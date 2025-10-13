@@ -87,6 +87,8 @@ export function Home({ onOpenTournaments }) {
         labelClassName="text-left text-m px-2 py-1"
 
 
+        labelMenuVariant="accordion"
+
         /* 🔉 Щелчки */
 //        sound={{ src: '/sounds/snap-click.mp3', volume: 0.05 }}
         sound={{ enabled: true, snap: 0.15, tick: 0.02 }}
