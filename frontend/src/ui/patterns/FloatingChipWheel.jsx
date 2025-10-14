@@ -3,6 +3,7 @@
 import React, { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { twMerge } from 'tailwind-merge';
 import { pokerSkin } from '@/ui/skins/wheels/pokerSkin';
+import { AccordionPill } from '@/ui/patterns/AccordionPill';
 
 /**
  * FloatingChipWheel — круговая навигация с дуговым свайпом и снапом.
@@ -168,6 +169,9 @@ export function FloatingChipWheel({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const labelRef = useRef(null);
+
+  // Открыта ли аккордеон-пилюля — чтобы блокировать жесты колеса
+  const [pillOpen, setPillOpen] = useState(false);
 
   // высота пилюли — чтобы список «прилипал» точно к ней
   const [labelH, setLabelH] = useState(0);
@@ -400,7 +404,7 @@ export function FloatingChipWheel({
   };
 
   const handleLabelClick = (e) => {
-    if (!enableLabelMenu || animating || draggingRef.current) return;
+    if (!enableLabelMenu || labelMenuVariant === 'accordion' || animating || draggingRef.current) return;
     e.stopPropagation();
     if (isMenuOpen) {
       closeMenu();
@@ -459,8 +463,9 @@ export function FloatingChipWheel({
 
 
     const onDown = (e) => {
-      if (animating || isMenuOpen) return;
+      if (animating || isMenuOpen || (labelMenuVariant === 'accordion' && pillOpen)) return;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+
 
       root.setPointerCapture?.(e.pointerId);
       draggingRef.current = true;
@@ -499,7 +504,7 @@ export function FloatingChipWheel({
     };
 
     const onMove = (e) => {
-      if (!draggingRef.current || animating || isMenuOpen) return;
+      if (!draggingRef.current || animating || isMenuOpen || (labelMenuVariant === 'accordion' && pillOpen)) return;
 
       const rect = root.getBoundingClientRect();
       const cx = rect.left + rect.width / 2;
@@ -575,7 +580,8 @@ export function FloatingChipWheel({
       // drop external unlock reference
       unlockBodyRef.current = () => {};
     };
-  }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, animating, isMenuOpen]);
+  }, [enableSwipe, deadzonePx, snapDurationMs, step, N, clean, activeId, onSelect, animating, isMenuOpen, pillOpen, labelMenuVariant]);
+
 
   // ───────────────────────────────────────────────────────────────
   // Обработка меню
@@ -794,139 +800,84 @@ export function FloatingChipWheel({
         {skinImpl.beforeIcons?.(geometry, skinProps)}
 
         {/* Подпись — через скин (он обрамит центром) */}
-        <div
-          className="absolute left-1/2 top-1/2"
-          style={{
-            transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
-            pointerEvents: enableLabelMenu ? 'auto' : 'none',
-          }}
-          ref={labelMenuVariant === 'accordion' ? menuRef : null}
-        >
-          {skinImpl.CenterLabelWrap
-            ? skinImpl.CenterLabelWrap(
-                geometry,
-                skinProps,
-                enableLabelMenu ? (
-                  <button
-                    ref={labelRef}
-                    type="button"
-                    onClick={handleLabelClick}
-                    className={twMerge(
-                      'inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[--fg-strong]',
-                      'cursor-pointer transition-colors',
-                      'hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
-                      labelClassName
-                    )}
-                    aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
-                    aria-expanded={isMenuOpen}
-                    aria-haspopup={labelMenuVariant === 'accordion' ? 'listbox' : 'menu'}
-                    aria-controls={menuId}
-                  >
-                    {/* Иконка активной секции — для accordion всегда видна, для compact только при открытии */}
-                    <span
-                      className={twMerge(
-                        'w-4 h-4 grid place-items-center',
-                        labelMenuVariant === 'accordion' ? 'opacity-100 scale-100' :
-                        labelMenuVariant === 'compact' && isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90',
-                        'transition-all duration-150'
-                      )}
-                      aria-hidden="true"
-                    >
-                      {renderIcon(clean[currentIndex])}
-                    </span>
-                    <span className="truncate">{clean[currentIndex]?.label}</span>
-                  </button>
-                ) : (
-                  <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
-                    {clean[currentIndex]?.label}
-                  </div>
-                )
-              )
-            : (
-                enableLabelMenu ? (
-                  <button
-                    ref={labelRef}
-                    type="button"
-                    onClick={handleLabelClick}
-                    className={twMerge(
-                      'inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[--fg-strong]',
-                      'cursor-pointer transition-colors',
-                      'hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
-                      labelClassName
-                    )}
-                    aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
-                    aria-expanded={isMenuOpen}
-                    aria-haspopup={labelMenuVariant === 'accordion' ? 'listbox' : 'menu'}
-                    aria-controls={menuId}
-                  >
-                    {/* Иконка активной секции — для accordion всегда видна, для compact только при открытии */}
-                    <span
-                      className={twMerge(
-                        'w-4 h-4 grid place-items-center',
-                        labelMenuVariant === 'accordion' ? 'opacity-100 scale-100' :
-                        labelMenuVariant === 'compact' && isMenuOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90',
-                        'transition-all duration-150'
-                      )}
-                      aria-hidden="true"
-                    >
-                      {renderIcon(clean[currentIndex])}
-                    </span>
-                    <span className="truncate">{clean[currentIndex]?.label}</span>
-                  </button>
-                ) : (
-                  <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
-                    {clean[currentIndex]?.label}
-                  </div>
-                )
-              )}
-          
-          {/* Выпадающий список для accordion */}
-          {labelMenuVariant === 'accordion' && enableLabelMenu && (
-            <div
-              className={twMerge(
-                'absolute left-1/2 w-48 z-[70]',
-                'rounded-xl overflow-hidden',
-                'bg-[--glass-bg] border border-[--glass-border]',
-                'backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
-                'transition-all duration-150 ease-out',
-                'motion-reduce:transition-none'
-              )}
-              style={{
-                transform: `translateX(-50%) translateY(${compactDir === 'up' ? `calc(-100% - ${compactGutter}px)` : `${labelH / 2 + compactGutter}px`}) scaleY(${isMenuOpen ? 1 : 0.96})`,
-                maxHeight: isMenuOpen ? `${accordionListMaxH}px` : '0px',
-                opacity: isMenuOpen ? 1 : 0,
-                transformOrigin: compactDir === 'up' ? 'bottom' : 'top'
+        {/* Центр: либо старая кнопка, либо новая «пилюля-аккордеон» */}
+        {labelMenuVariant === 'accordion' ? (
+          <div
+            className="absolute left-1/2 top-1/2 z-[70]"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
+              pointerEvents: 'auto',
+            }}
+          >
+            <AccordionPill
+              key={`pill-${currentIndex}`}            // пересоздаём при смене активной секции
+              items={clean.map(i => i.label)}
+              initialIndex={currentIndex}
+              icons={clean.map(i => i.icon ?? (i.Icon ? <i.Icon style={{ width: iconSize, height: iconSize }} aria-hidden="true" /> : null))}
+              className=""
+              onSelect={(idx) => {
+                // та же логика, что была в handleMenuItemClick
+                const s = stepF.current;
+                let best = idx;
+                let bestDist = Infinity;
+                for (let k = -1; k <= 1; k++) {
+                  const cand = idx + k * N;
+                  const dist = Math.abs(cand - s);
+                  if (dist < bestDist) { bestDist = dist; best = cand; }
+                }
+                snapTo(best);
               }}
-              role="listbox"
-              aria-label="Section selection (accordion)"
-            >
-              <div className="overflow-y-auto" style={{ maxHeight: `${accordionListMaxH}px` }}>
-                {accordionItems.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      const idx = clean.findIndex(i => i.id === item.id);
-                      handleMenuItemClick(idx);
-                    }}
-                    className={twMerge(
-                      'w-full flex items-center gap-3 px-3 text-left',
-                      'hover:bg-white/8 focus:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
-                      'transition-colors duration-75 text-[--fg] border-none'
-                    )}
-                    role="option"
-                    style={{ height: `${compactItemHeight}px` }}
-                  >
-                    <div className="w-4 h-4 flex-shrink-0 grid place-items-center">
-                      {renderIcon(item)}
+              onOpenChange={setPillOpen}
+            />
+          </div>
+        ) : (
+          /* старый блок с кнопкой-лейблом и меню (panel/compact) оставляем без изменений */
+          <div
+            className="absolute left-1/2 top-1/2"
+            style={{
+              transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
+              pointerEvents: enableLabelMenu ? 'auto' : 'none',
+            }}
+            ref={menuRef}
+          >
+            {skinImpl.CenterLabelWrap
+              ? skinImpl.CenterLabelWrap(
+                  geometry,
+                  skinProps,
+                  enableLabelMenu ? (
+                    <button
+                      ref={labelRef}
+                      type="button"
+                      onClick={handleLabelClick}
+                      className={twMerge(
+                        'inline-flex items-center gap-2 px-3.5 py-2 rounded-full text-[--fg-strong]',
+                        'cursor-pointer transition-colors',
+                        'hover:bg-white/10 focus:outline-none focus:[box-shadow:var(--ring)]',
+                        labelClassName
+                      )}
+                      aria-label={`Current section: ${clean[currentIndex]?.label}. Click to open section menu`}
+                      aria-expanded={isMenuOpen}
+                      aria-haspopup="menu"
+                      aria-controls={menuId}
+                    >
+                      <span className="w-4 h-4 grid place-items-center transition-all duration-150" aria-hidden="true">
+                        {renderIcon(clean[currentIndex])}
+                      </span>
+                      <span className="truncate">{clean[currentIndex]?.label}</span>
+                    </button>
+                  ) : (
+                    <div className={twMerge('text-center px-4 py-2 rounded-full text-[--fg-strong]', labelClassName)}>
+                      {clean[currentIndex]?.label}
                     </div>
-                    <span className="truncate flex-1">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+                  )
+                )
+              : null}
+
+            {/* panel / compact — остаются как были ниже */}
+          </div>
+        )}
+
+
 
 
         {/* Меню выбора секций: panel | compact (accordion уже выше) */}
@@ -1079,15 +1030,6 @@ export function FloatingChipWheel({
             );
           })()
         )}
-
-
-
-
-
-
-
-
-
 
 
         {/* Иконки — бесшовная лента c декорацией скина */}

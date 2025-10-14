@@ -80,6 +80,8 @@ export function AccordionPill({
   icons = null,
   iconSize,          // если не передали — возьмём из токена
   iconGap,           // если не передали — возьмём из токена
+  onSelect,          // (idx:number) => void (опц.) — сообщаем наружу выбор пункта
+  onOpenChange,      // (open:boolean) => void (опц.) — сообщаем о смене open
 }) {
 
   const [open, setOpen] = useState(false);
@@ -156,6 +158,11 @@ export function AccordionPill({
       document.removeEventListener('keydown', onKey);
     };
   }, [open]);
+
+  // Репортим внешнему миру смену открытости
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
 
   // Высота шапки
   useEffect(() => {
@@ -376,7 +383,11 @@ export function AccordionPill({
                   <button
                     key={label}
                     type="button"
-                    onClick={() => { setActive(idx); setOpen(false); }}
+                    onClick={() => {
+                      setActive(idx);
+                      onSelect?.(idx);
+                      setOpen(false);
+                    }}
                     className={twMerge(
                       'w-full relative flex items-center px-[var(--acc-pill-px)] text-left',
                       'text-[--fg] hover:bg-white/8 focus:bg-white/8',
