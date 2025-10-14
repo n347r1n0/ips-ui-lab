@@ -82,6 +82,10 @@ export function AccordionPill({
   iconGap,           // если не передали — возьмём из токена
   onSelect,          // (idx:number) => void (опц.) — сообщаем наружу выбор пункта
   onOpenChange,      // (open:boolean) => void (опц.) — сообщаем о смене open
+  /** Сообщить родителю максимальную ширину ЗАКРЫТОЙ пилюли (px).
+   *  Нужно 1 раз (и при редких пересчётах метрик/шрифтов), чтобы родитель
+   *  мог правильно сместить якорь на +closedMax/2. */
+  onMeasureClosedMax,
 }) {
 
   const [open, setOpen] = useState(false);
@@ -122,6 +126,8 @@ export function AccordionPill({
 
   const measureBoxRef = useRef(null);      // offscreen-измеритель
 
+  const lastClosedMaxRef = useRef(null);   // дедупликация колбэка наверх
+
 
   // Унифицированный пересчёт ширин (активный лейбл + максимум среди всех)
   const recomputeWidths = () => {
@@ -139,6 +145,18 @@ export function AccordionPill({
 
     setMaxW(max);
     setLabelW(lw);
+
+    // ── сообщаем наверх «максимальную ширину закрытой пилюли»
+    // ВАЖНО: формула закрытой ширины сейчас = labelW - 2 (см. ниже closedWidth)
+    // Значит для «максимально возможной закрытой» берём maxW - 2.
+    // Это число родитель использует ТОЛЬКО для сдвига якоря (= closedMax/2).
+    if (typeof onMeasureClosedMax === 'function') {
+      const closedMaxPx = Math.max(0, max - 2);
+      if (closedMaxPx !== lastClosedMaxRef.current) {
+        lastClosedMaxRef.current = closedMaxPx;
+        try { onMeasureClosedMax(closedMaxPx); } catch {}
+      }
+    }
   };
 
 

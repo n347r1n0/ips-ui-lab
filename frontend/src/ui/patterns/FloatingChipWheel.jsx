@@ -173,6 +173,15 @@ export function FloatingChipWheel({
   // Открыта ли аккордеон-пилюля — чтобы блокировать жесты колеса
   const [pillOpen, setPillOpen] = useState(false);
 
+  // Максимальная ширина ЗАКРЫТОЙ пилюли (px), чтобы смещать якорь на +closedMax/2
+  const [pillClosedMaxPx, setPillClosedMaxPx] = useState(null);
+
+
+  // ── ширина закрытой пилюли (максимум по всем лейблам) для правильного позиционирования
+  const measurePillRef = useRef(null);
+  const [closedMaxPx, setClosedMaxPx] = useState(0);
+
+
   // высота пилюли — чтобы список «прилипал» точно к ней
   const [labelH, setLabelH] = useState(0);
 
@@ -181,6 +190,40 @@ export function FloatingChipWheel({
       setLabelH(labelRef.current.offsetHeight || 0);
     }
   }, [isMenuOpen, labelMenuVariant, labelClassName, labelOffset, currentIndex]);
+
+
+
+  // Пересчёт максимальной закрытой ширины пилюли (паддинги = токены)
+  const recomputeClosedMax = () => {
+    const box = measurePillRef.current;
+    if (!box) return;
+    let maxW = 0;
+    box.querySelectorAll('[data-measure="pill-label"]').forEach((n) => {
+      const w = Math.ceil(n.scrollWidth || 0); // scrollWidth учитывает горизонтальные паддинги
+      if (w > maxW) maxW = w;
+    });
+    setClosedMaxPx(maxW + 1); // +1px против сабпикселей
+  };
+
+  useLayoutEffect(() => { recomputeClosedMax(); }, [items]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+      document.fonts.ready.then(() => { if (!cancelled) recomputeClosedMax(); });
+    }
+    const onFontsDone = () => recomputeClosedMax();
+    if (document.fonts && typeof document.fonts.addEventListener === 'function') {
+      document.fonts.addEventListener('loadingdone', onFontsDone);
+    }
+    return () => {
+      cancelled = true;
+      if (document.fonts && typeof document.fonts.removeEventListener === 'function') {
+        document.fonts.removeEventListener('loadingdone', onFontsDone);
+      }
+    };
+  }, [items]);
+
 
 
 
@@ -796,6 +839,21 @@ export function FloatingChipWheel({
         )}
         style={{ width: size, height: size, overflow: 'visible' }}
       >
+        {/* Offscreen-мерилка для max ширины закрытой пилюли */}
+        <div aria-hidden className="absolute opacity-0 pointer-events-none -z-10 top-0 left-0">
+          <div ref={measurePillRef} className="whitespace-nowrap">
+            {clean.map((it) => (
+              <div
+                key={`m-pill-${it.id}`}
+                data-measure="pill-label"
+                className="inline-block px-[var(--acc-pill-px)] py-[var(--acc-pill-py)]"
+              >
+                {it.label}
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* skin: фон/обод/клинья до иконок */}
         {skinImpl.beforeIcons?.(geometry, skinProps)}
 
@@ -805,7 +863,11 @@ export function FloatingChipWheel({
           <div
             className="absolute left-1/2 top-1/2 z-[70]"
             style={{
-              transform: `translate(-50%, -50%) translate(${labelOffset.x || 0}px, ${labelOffset.y || 0}px)`,
+              // Сдвигаем вправо на половину максимальной ширины закрытой пилюли,
+              // чтобы её ПРАВОЕ ребро «упиралось» в прежнюю точку центра.
+              // Минус 5px — компенсируем визуальный бордер стеклянной капсулы.
+              // ⚠️ Не удаляйте «−5»: это осознанная правка под текущие токены.
+              transform: `translate(-50%, -50%) translate(${(labelOffset.x || 0) + (pillClosedMaxPx ? (pillClosedMaxPx / 2 - 5) : 0)}px, ${labelOffset.y || 0}px)`,
               pointerEvents: 'auto',
             }}
           >
@@ -828,6 +890,10 @@ export function FloatingChipWheel({
                 snapTo(best);
               }}
               onOpenChange={setPillOpen}
+              onMeasureClosedMax={(px) => {
+                // Дедупликация на всякий случай — чтобы не гонять setState на то же значение
+                setPillClosedMaxPx(prev => (prev === px ? prev : px));
+              }}
             />
           </div>
         ) : (
@@ -876,8 +942,6 @@ export function FloatingChipWheel({
             {/* panel / compact — остаются как были ниже */}
           </div>
         )}
-
-
 
 
         {/* Меню выбора секций: panel | compact (accordion уже выше) */}
