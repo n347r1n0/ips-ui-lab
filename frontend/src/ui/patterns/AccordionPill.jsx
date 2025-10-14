@@ -72,7 +72,7 @@ import { twMerge } from 'tailwind-merge';
  */
 
 export function AccordionPill({
-  items = ['Главная', 'О клубе', 'Турниры', 'Рейтинг', 'Галерея'],
+  items = [],
   initialIndex = 0,
   rowHeight,         // если не передали — возьмём из токена
   maxRows = 6,
@@ -282,7 +282,7 @@ export function AccordionPill({
           className={twMerge(
             'absolute right-0 bottom-0 z-[45] pointer-events-auto',
             'flex flex-col-reverse',
-            'border border-[--glass-border]',
+            'isolate bg-clip-padding',
             'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
             'transition-[max-height,width] duration-200 ease-out'
           )}
@@ -293,6 +293,8 @@ export function AccordionPill({
             transformOrigin: 'bottom',
             willChange: 'max-height',
             borderRadius: `${pillRadiusPx}px`,
+            boxShadow: 'inset 0 0 0 0.5px var(--acc-pill-glass-border)',
+            border: 'none',
             '--icon-slot': open && hasAnyIcon ? `${tokenIconSz + tokenIconGp}px` : '0px',
             '--ring': '0 0 0 0 rgba(0,0,0,0)',
           }}
@@ -316,6 +318,30 @@ export function AccordionPill({
             aria-expanded={open}
             aria-controls="accordion-pill-list"
           >
+
+            {/* 3D-капсула-декор: фон+внутренние тени */}
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                borderRadius: `${pillRadiusPx}px`,
+                background: 'var(--acc3d-fill)',
+                boxShadow: 'var(--acc3d-inset-light), var(--acc3d-inset-dark), var(--acc3d-drop)',
+                // border: 'var(--acc3d-border)', // при желании включить кант; сейчас избегаем «двойного» бордера
+                zIndex: 0,
+              }}
+            />
+            {/* Узкий верхний блик */}
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                borderRadius: `${pillRadiusPx}px`,
+                background: 'var(--acc3d-top-gloss)',
+                zIndex: 1,
+              }}
+            />
+
             {/* Иконка у активного пункта — только когда ОТКРЫТО и иконки есть */}
             <span
               aria-hidden="true"
@@ -329,11 +355,12 @@ export function AccordionPill({
                 justifyContent: 'center',
                 opacity: open && hasAnyIcon && icons?.[active] ? 1 : 0,
                 transition: 'opacity 160ms ease-out',
+                zIndex: 2,
               }}
             >
               {icons?.[active] ?? null}
             </span>
-            <span className="whitespace-nowrap">{items[active]}</span>
+            <span className="whitespace-nowrap relative z-[2]">{items[active]}</span>
           </button>
 
           {/* Контент аккордеона */}
