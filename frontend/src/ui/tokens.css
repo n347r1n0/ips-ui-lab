@@ -107,6 +107,22 @@
   --chip-shadow:      0 8px 24px rgba(0,0,0,.5);
   --chip-border:      1px solid rgba(255,255,255,.15);
   --chip-accent:      var(--gold);
+
+
+  /* AccordionPill — geometry tokens */
+  --acc-pill-px:        12px;  /* горизонтальный паддинг шапки/строк */
+  --acc-pill-py:        10px;  /* вертикальный паддинг шапки */
+  --acc-pill-row-h:     40px;  /* высота строки списка */
+  --acc-pill-icon-size: 18px;  /* базовый размер иконки */
+  --acc-pill-icon-gap:   8px;  /* отступ между иконкой и текстом */
+
+  /* AccordionPill 3D */
+  --acc3d-fill:           #15171c;         /* базовый фон активной капсулы */
+  --acc3d-top-gloss:      linear-gradient(to bottom, rgba(255,255,255,.18), rgba(255,255,255,0) 14%);
+  --acc3d-inset-light:    inset 0 1px 0 rgba(255,255,255,.25);
+  --acc3d-inset-dark:     inset 0 -8px 18px rgba(0,0,0,.35);
+  --acc3d-drop:           0 6px 16px rgba(0,0,0,.28);
+  --acc3d-border:         1px solid rgba(255,255,255,.12);
 }
 
 /* ───────────────────────────────────────────────────────────────────

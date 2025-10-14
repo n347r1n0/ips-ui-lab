@@ -74,23 +74,33 @@ import { twMerge } from 'tailwind-merge';
 export function AccordionPill({
   items = ['Главная', 'О клубе', 'Турниры', 'Рейтинг', 'Галерея'],
   initialIndex = 0,
-  rowHeight = 40,   // px
-  maxRows = 6,      // визуальный предел высоты списка
+  rowHeight,         // если не передали — возьмём из токена
+  maxRows = 6,
   className = '',
-
-  /** Опционально: иконки для пунктов (той же длины, что items).
-   *  В закрытом состоянии не показываются; при открытии — появляются слева.
-   *  Если не передавать — всё работает как раньше, без иконок.
-   */
   icons = null,
-  iconSize = 18,     // px: визуальный размер глифа
-  iconGap = 8,       // px: отступ между иконкой и текстом
+  iconSize,          // если не передали — возьмём из токена
+  iconGap,           // если не передали — возьмём из токена
 }) {
+
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(initialIndex);
 
   const labelRef = useRef(null);
   const wrapperRef = useRef(null);
+
+
+  // Читать px-значение токена и парсить в число
+  const readTokenPx = (name, fallback) => {
+    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    const num = parseFloat(v);
+    return Number.isFinite(num) ? num : fallback;
+  };
+
+  // Значения токенов → числа (px)
+  const tokenRowH   = rowHeight ?? readTokenPx('--acc-pill-row-h', 40);
+  const tokenIconSz = iconSize  ?? readTokenPx('--acc-pill-icon-size', 18);
+  const tokenIconGp = iconGap   ?? readTokenPx('--acc-pill-icon-gap', 8);
+
 
   // Геометрия «шапки»
   const [labelH, setLabelH] = useState(0);
@@ -228,7 +238,7 @@ export function AccordionPill({
 
   // Высота раскрытия контента
   const rows = Math.min(items.length - 1, maxRows);
-  const listMaxH = Math.max(0, rows * rowHeight);
+  const listMaxH = Math.max(0, rows * tokenRowH);
 
   const visibleCount = Math.max(0, items.length - 1);
   const needScrollbar = visibleCount > maxRows;
@@ -236,11 +246,11 @@ export function AccordionPill({
   // Есть ли вообще хоть одна иконка
   const hasAnyIcon = Array.isArray(icons) && icons.some(Boolean);
   // Слот для иконки (фикс), добавляем только когда пилюля ОТКРЫТА и есть хотя бы одна иконка
-  const iconSlot = open && hasAnyIcon ? (iconSize + iconGap) : 0;
+  const iconSlot = open && hasAnyIcon ? (tokenIconSz + tokenIconGp) : 0;
 
   // Итоговая ширина «пилюли»
-  const closedWidth = labelW + 6;                                   // +2px страховка
-  const openWidth   = Math.max(labelW, maxW) + iconSlot + 6;        // резерв под иконки + буфер
+  const closedWidth = labelW - 2;          // твой текущий буфер
+  const openWidth   = Math.max(labelW, maxW) + iconSlot -2;        // резерв под иконки + буфер
   const pillWidth   = open ? openWidth : closedWidth;
 
   return (
@@ -253,7 +263,7 @@ export function AccordionPill({
               key={`m-${label}`}
               data-measure="label"
               data-idx={idx}
-              className="inline-block px-3 py-2.5"
+              className="inline-block px-[var(--acc-pill-px)] py-[var(--acc-pill-py)]"
             >
               {label}
             </div>
@@ -283,6 +293,8 @@ export function AccordionPill({
             transformOrigin: 'bottom',
             willChange: 'max-height',
             borderRadius: `${pillRadiusPx}px`,
+            '--icon-slot': open && hasAnyIcon ? `${tokenIconSz + tokenIconGp}px` : '0px',
+            '--ring': '0 0 0 0 rgba(0,0,0,0)',
           }}
           role="group"
           aria-label="Навигация (пилюля)"
@@ -294,12 +306,12 @@ export function AccordionPill({
             onClick={() => setOpen((v) => !v)}
             className={twMerge(
               'w-full relative flex items-center justify-start text-left',
-              'px-3 py-2.5',
+              'px-[var(--acc-pill-px)] py-[var(--acc-pill-py)]',
               'text-[--fg-strong]',
               'hover:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
             )}
             style={{
-                paddingLeft: open && hasAnyIcon ? 12 + (iconSize + iconGap) : 16,
+                paddingLeft: `calc(var(--acc-pill-px) + var(--icon-slot))`,
             }}
             aria-expanded={open}
             aria-controls="accordion-pill-list"
@@ -309,9 +321,9 @@ export function AccordionPill({
               aria-hidden="true"
               className="pointer-events-none absolute top-1/2 -translate-y-1/2"
               style={{
-                left: 12,                            // тот же «px-4»
-                width: iconSize,
-                height: iconSize,
+                left: 'var(--acc-pill-px)',
+                width: tokenIconSz,
+                height: tokenIconSz,
                 display: 'inline-flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -339,15 +351,15 @@ export function AccordionPill({
                     type="button"
                     onClick={() => { setActive(idx); setOpen(false); }}
                     className={twMerge(
-                      'w-full relative flex items-center px-3 text-left',
+                      'w-full relative flex items-center px-[var(--acc-pill-px)] text-left',
                       'text-[--fg] hover:bg-white/8 focus:bg-white/8',
                       'focus:outline-none focus:[box-shadow:var(--ring)]'
                     )}
                     role="option"
                     style={{
-                      height: rowHeight,
+                      height: 'var(--acc-pill-row-h)',
                       // в списке мы всегда в открытом состоянии → сразу резервируем место под иконку
-                      paddingLeft: 12 + (hasAnyIcon ? (iconSize + iconGap) : 0),
+                      paddingLeft: 'calc(var(--acc-pill-px) + var(--icon-slot))',
                     }}
                   >
                     {/* Иконка слева — только когда открыто и иконка есть */}
@@ -356,9 +368,9 @@ export function AccordionPill({
                       aria-hidden="true"
                       className="pointer-events-none absolute top-1/2 -translate-y-1/2"
                       style={{
-                        left: 12,                           // тот же «px-4»
-                        width: iconSize,
-                        height: iconSize,
+                        left: 'var(--acc-pill-px)',
+                        width: tokenIconSz,
+                        height: tokenIconSz,
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
