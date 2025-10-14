@@ -4,6 +4,8 @@ import React from 'react';
 import { Button } from '@/ui/primitives/Button';
 import { Card } from '@/ui/surfaces/Card';
 import { AccordionPill } from '@/ui/patterns/AccordionPill';
+import { SECTIONS } from '@/ui/navigation/sections';
+
 
 export function Hero({ onOpenTournaments }) {
   return (
@@ -40,7 +42,12 @@ export function Hero({ onOpenTournaments }) {
 
           {/* Аккордеон-пилюля: располагается под блоком кнопок, раскрывается ВВЕРХ и перекрывает их */}
           <div className="mt-4 relative">
-            <AccordionPill />
+            <AccordionPill
+              items={SECTIONS.map(s => s.label)}
+              icons={SECTIONS.map(s => (s.Icon ? <s.Icon className="w-4 h-4" aria-hidden="true" /> : null))}
+              iconSize={16}   // синхронизировано с w-4 h-4
+              iconGap={8}     // расстояние между иконкой и текстом
+            />
           </div>
 
         </div>

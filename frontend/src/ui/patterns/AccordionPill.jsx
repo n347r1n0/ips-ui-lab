@@ -71,14 +71,20 @@ import { twMerge } from 'tailwind-merge';
  * ───────────────────────────────────────────────────────────────────────────────
  */
 
-
-
 export function AccordionPill({
-  items = ['Главная', 'О клубе', 'Турнирыыыыыыыыыыыыы', 'Рейтинг', 'Галерея'],
+  items = ['Главная', 'О клубе', 'Турниры', 'Рейтинг', 'Галерея'],
   initialIndex = 0,
   rowHeight = 40,   // px
   maxRows = 6,      // визуальный предел высоты списка
   className = '',
+
+  /** Опционально: иконки для пунктов (той же длины, что items).
+   *  В закрытом состоянии не показываются; при открытии — появляются слева.
+   *  Если не передавать — всё работает как раньше, без иконок.
+   */
+  icons = null,
+  iconSize = 18,     // px: визуальный размер глифа
+  iconGap = 8,       // px: отступ между иконкой и текстом
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(initialIndex);
@@ -89,10 +95,31 @@ export function AccordionPill({
   // Геометрия «шапки»
   const [labelH, setLabelH] = useState(0);
 
-  // Динамическая ширина
-  const [labelW, setLabelW] = useState(0); // ширина активного лейбла
-  const [maxW, setMaxW] = useState(0);     // максимальная ширина из всех лейблов
+  // Динамическая ширина текста (без иконок)
+  const [labelW, setLabelW] = useState(0); // ширина активного лейбла (text + paddings)
+  const [maxW, setMaxW] = useState(0);     // максимальная ширина среди всех лейблов
+
   const measureBoxRef = useRef(null);      // offscreen-измеритель
+
+
+  // Унифицированный пересчёт ширин (активный лейбл + максимум среди всех)
+  const recomputeWidths = () => {
+    const box = measureBoxRef.current;
+    if (!box) return;
+
+    // maxW
+    const nodes = box.querySelectorAll('[data-measure="label"]');
+    let max = 0;
+    nodes.forEach((n) => { max = Math.max(max, Math.ceil(n.scrollWidth || 0)); });
+
+    // labelW (по активному)
+    const n = box.querySelector(`[data-idx="${active}"]`);
+    const lw = n ? Math.ceil(n.scrollWidth || 0) : 0;
+
+    setMaxW(max);
+    setLabelW(lw);
+  };
+
 
   // Закрытие по клику вне и Esc
   useEffect(() => {
@@ -116,25 +143,47 @@ export function AccordionPill({
     if (labelRef.current) setLabelH(labelRef.current.offsetHeight || 0);
   }, [open]);
 
-  // Ширина активного лейбла — по offscreen-измерителю (естественная ширина с паддингами)
+  // Пересчёт ширин при смене активного или списка
   useLayoutEffect(() => {
-    const box = measureBoxRef.current;
-    if (!box) return;
-    const n = box.querySelector(`[data-idx="${active}"]`);
-    if (!n) return;
-    setLabelW(Math.ceil(n.scrollWidth || 0));
+    recomputeWidths();
   }, [active, items]);
 
-  // Максимальная ширина среди всех лейблов
-  useLayoutEffect(() => {
+
+  // После загрузки шрифтов метрики меняются — пересчитать ширины
+  useEffect(() => {
+    let cancelled = false;
+
+    // 1) document.fonts.ready — один раз, когда все матчи шрифтов готовы
+    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
+      document.fonts.ready.then(() => {
+        if (!cancelled) recomputeWidths();
+      });
+    }
+
+    // 2) На случай динамической подзагрузки начертаний
+    const onFontsDone = () => recomputeWidths();
+    if (document.fonts && typeof document.fonts.addEventListener === 'function') {
+      document.fonts.addEventListener('loadingdone', onFontsDone);
+    }
+
+    return () => {
+      cancelled = true;
+      if (document.fonts && typeof document.fonts.removeEventListener === 'function') {
+        document.fonts.removeEventListener('loadingdone', onFontsDone);
+      }
+    };
+  }, [active, items]);
+
+  // 3) Если мерилка изменила размеры (напр. от шрифта) — пересчитать
+  useEffect(() => {
     const box = measureBoxRef.current;
-    if (!box) return;
-    const nodes = box.querySelectorAll('[data-measure="label"]');
-    if (!nodes.length) return;
-    let max = 0;
-    nodes.forEach((n) => { max = Math.max(max, Math.ceil(n.scrollWidth || 0)); });
-    setMaxW(max);
-  }, [items]);
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => recomputeWidths());
+    ro.observe(box);
+    return () => ro.disconnect();
+  }, []);
+
+
 
   // Высота раскрытия контента
   const rows = Math.min(items.length - 1, maxRows);
@@ -143,9 +192,19 @@ export function AccordionPill({
   const visibleCount = Math.max(0, items.length - 1);
   const needScrollbar = visibleCount > maxRows;
 
+  // Есть ли вообще хоть одна иконка
+  const hasAnyIcon = Array.isArray(icons) && icons.some(Boolean);
+  // Слот для иконки (фикс), добавляем только когда пилюля ОТКРЫТА и есть хотя бы одна иконка
+  const iconSlot = open && hasAnyIcon ? (iconSize + iconGap) : 0;
+
+  // Итоговая ширина «пилюли»
+  const closedWidth = labelW + 2;                                   // +2px страховка
+  const openWidth   = Math.max(labelW, maxW) + iconSlot + 2;        // резерв под иконки + буфер
+  const pillWidth   = open ? openWidth : closedWidth;
+
   return (
     <div className={twMerge('h-[44px] relative', className)} aria-live="polite">
-      {/* Offscreen-измеритель ширины лейблов */}
+      {/* Offscreen-измеритель ширины ЛЕЙБЛОВ (без иконок!) */}
       <div aria-hidden className="absolute opacity-0 pointer-events-none -z-10 top-0 left-0">
         <div ref={measureBoxRef} className="whitespace-nowrap">
           {items.map((label, idx) => (
@@ -161,20 +220,12 @@ export function AccordionPill({
         </div>
       </div>
 
-      {/* ───────────────────────────────────────────────────────────────
-          АНКЕР (центр секции): нулевая ширина, только позиция
-          ─ right:50% ставит «линию» по центру контейнера
-          ─ width:0, overflow:visible — всё содержимое можно выводить влево
-         ─────────────────────────────────────────────────────────────── */}
+      {/* Якорь-линия: по центру секции */}
       <div
         className="absolute bottom-0 right-1/2"
-        style={{
-          width: 0,            // якорь-линия
-          overflow: 'visible', // позволяем пилюле уходить влево сколько надо
-          pointerEvents: 'none'
-        }}
+        style={{ width: 0, overflow: 'visible', pointerEvents: 'none' }}
       >
-        {/* Пилюля: правый край на линии центра; рост ширины — только влево */}
+        {/* Пилюля: правый край приклеен к центру, рост ширины — только влево */}
         <div
           ref={wrapperRef}
           className={twMerge(
@@ -186,7 +237,7 @@ export function AccordionPill({
           )}
           style={{
             maxHeight: open ? labelH + listMaxH : labelH || 44,
-            width: `${(open ? Math.max(labelW, maxW) : labelW) + 2}px`, // +2px запас на субпиксели
+            width: `${pillWidth}px`,
             overflow: 'hidden',
             transformOrigin: 'bottom',
             willChange: 'max-height',
@@ -200,19 +251,38 @@ export function AccordionPill({
             type="button"
             onClick={() => setOpen((v) => !v)}
             className={twMerge(
-              'w-auto inline-flex min-w-0 text-left',
+              'w-full relative flex items-center justify-start text-left',
               'px-4 py-2.5',
-              'flex items-center gap-2',
               'text-[--fg-strong]',
               'hover:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
             )}
+            style={{
+                paddingLeft: open && hasAnyIcon ? 16 + (iconSize + iconGap) : 16,
+            }}
             aria-expanded={open}
             aria-controls="accordion-pill-list"
           >
+            {/* Иконка у активного пункта — только когда ОТКРЫТО и иконки есть */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+              style={{
+                left: 16,                            // тот же «px-4»
+                width: iconSize,
+                height: iconSize,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: open && hasAnyIcon && icons?.[active] ? 1 : 0,
+                transition: 'opacity 160ms ease-out',
+              }}
+            >
+              {icons?.[active] ?? null}
+            </span>
             <span className="whitespace-nowrap">{items[active]}</span>
           </button>
 
-          {/* Контент аккордеона — увеличиваем только высоту контейнера */}
+          {/* Контент аккордеона */}
           <div id="accordion-pill-list" className="w-full" aria-hidden={!open}>
             <div
               className={twMerge(needScrollbar ? 'overflow-y-auto' : 'overflow-hidden')}
@@ -227,14 +297,36 @@ export function AccordionPill({
                     type="button"
                     onClick={() => { setActive(idx); setOpen(false); }}
                     className={twMerge(
-                      'w-full flex items-center gap-3 px-4 text-left',
+                      'w-full relative flex items-center px-4 text-left',
                       'text-[--fg] hover:bg-white/8 focus:bg-white/8',
                       'focus:outline-none focus:[box-shadow:var(--ring)]'
                     )}
                     role="option"
-                    style={{ height: rowHeight }}
+                    style={{
+                      height: rowHeight,
+                      // в списке мы всегда в открытом состоянии → сразу резервируем место под иконку
+                      paddingLeft: 16 + (hasAnyIcon ? (iconSize + iconGap) : 0),
+                    }}
                   >
-                    <span className="truncate">{label}</span>
+                    {/* Иконка слева — только когда открыто и иконка есть */}
+
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute top-1/2 -translate-y-1/2"
+                      style={{
+                        left: 16,                           // тот же «px-4»
+                        width: iconSize,
+                        height: iconSize,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: hasAnyIcon && icons?.[idx] ? 1 : 0,
+                        transition: 'opacity 160ms ease-out',
+                      }}
+                    >
+                      {icons?.[idx] ?? null}
+                    </span>
+                    <span className="whitespace-nowrap">{label}</span>
                   </button>
                 );
               })}
