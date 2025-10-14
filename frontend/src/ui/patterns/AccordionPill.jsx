@@ -95,6 +95,15 @@ export function AccordionPill({
   // Геометрия «шапки»
   const [labelH, setLabelH] = useState(0);
 
+
+
+  const [pillRadiusPx, setPillRadiusPx] = useState(22);   // старт: 44/2, чтобы не было фолбека
+  const radiusFrozenRef = useRef(false);                   // как только посчитали корректно — больше не менять
+
+
+
+
+
   // Динамическая ширина текста (без иконок)
   const [labelW, setLabelW] = useState(0); // ширина активного лейбла (text + paddings)
   const [maxW, setMaxW] = useState(0);     // максимальная ширина среди всех лейблов
@@ -143,6 +152,25 @@ export function AccordionPill({
     if (labelRef.current) setLabelH(labelRef.current.offsetHeight || 0);
   }, [open]);
 
+  // Фиксируем радиус = высота закрытой пилюли / 2 (только пока закрыта и ещё не заморожено)
+  useLayoutEffect(() => {
+    if (open || radiusFrozenRef.current) return;
+    if (!wrapperRef.current) return;
+    const h = wrapperRef.current.offsetHeight || 0;
+    if (h > 0) {
+      const r = Math.round(h / 2);
+      if (pillRadiusPx !== r) setPillRadiusPx(r);
+    }
+  }, [open, labelH, pillRadiusPx]);
+
+  // Как только пользователь впервые открыл пилюлю — фиксируем радиус навсегда
+  useEffect(() => {
+    if (open) {
+      radiusFrozenRef.current = true;
+    }
+  }, [open]);
+
+
   // Пересчёт ширин при смене активного или списка
   useLayoutEffect(() => {
     recomputeWidths();
@@ -183,6 +211,19 @@ export function AccordionPill({
     return () => ro.disconnect();
   }, []);
 
+  // Шрифты могут изменить высоту шапки → одно уточнение радиуса до первого открытия
+  useEffect(() => {
+    if (!document.fonts?.ready) return;
+    let cancelled = false;
+    document.fonts.ready.then(() => {
+      if (cancelled || open || radiusFrozenRef.current || !wrapperRef.current) return;
+      const h = wrapperRef.current.offsetHeight || 0;
+      if (h > 0) setPillRadiusPx(Math.round(h / 2));
+    });
+    return () => { cancelled = true; };
+  }, [open]);
+
+
 
 
   // Высота раскрытия контента
@@ -198,8 +239,8 @@ export function AccordionPill({
   const iconSlot = open && hasAnyIcon ? (iconSize + iconGap) : 0;
 
   // Итоговая ширина «пилюли»
-  const closedWidth = labelW + 2;                                   // +2px страховка
-  const openWidth   = Math.max(labelW, maxW) + iconSlot + 2;        // резерв под иконки + буфер
+  const closedWidth = labelW + 6;                                   // +2px страховка
+  const openWidth   = Math.max(labelW, maxW) + iconSlot + 6;        // резерв под иконки + буфер
   const pillWidth   = open ? openWidth : closedWidth;
 
   return (
@@ -212,7 +253,7 @@ export function AccordionPill({
               key={`m-${label}`}
               data-measure="label"
               data-idx={idx}
-              className="inline-block px-4 py-2.5"
+              className="inline-block px-3 py-2.5"
             >
               {label}
             </div>
@@ -231,7 +272,7 @@ export function AccordionPill({
           className={twMerge(
             'absolute right-0 bottom-0 z-[45] pointer-events-auto',
             'flex flex-col-reverse',
-            'rounded-2xl border border-[--glass-border]',
+            'border border-[--glass-border]',
             'bg-[--glass-bg] backdrop-blur-[var(--glass-blur)] shadow-[var(--shadow-s)]',
             'transition-[max-height,width] duration-200 ease-out'
           )}
@@ -241,6 +282,7 @@ export function AccordionPill({
             overflow: 'hidden',
             transformOrigin: 'bottom',
             willChange: 'max-height',
+            borderRadius: `${pillRadiusPx}px`,
           }}
           role="group"
           aria-label="Навигация (пилюля)"
@@ -252,12 +294,12 @@ export function AccordionPill({
             onClick={() => setOpen((v) => !v)}
             className={twMerge(
               'w-full relative flex items-center justify-start text-left',
-              'px-4 py-2.5',
+              'px-3 py-2.5',
               'text-[--fg-strong]',
               'hover:bg-white/8 focus:outline-none focus:[box-shadow:var(--ring)]',
             )}
             style={{
-                paddingLeft: open && hasAnyIcon ? 16 + (iconSize + iconGap) : 16,
+                paddingLeft: open && hasAnyIcon ? 12 + (iconSize + iconGap) : 16,
             }}
             aria-expanded={open}
             aria-controls="accordion-pill-list"
@@ -267,7 +309,7 @@ export function AccordionPill({
               aria-hidden="true"
               className="pointer-events-none absolute top-1/2 -translate-y-1/2"
               style={{
-                left: 16,                            // тот же «px-4»
+                left: 12,                            // тот же «px-4»
                 width: iconSize,
                 height: iconSize,
                 display: 'inline-flex',
@@ -297,7 +339,7 @@ export function AccordionPill({
                     type="button"
                     onClick={() => { setActive(idx); setOpen(false); }}
                     className={twMerge(
-                      'w-full relative flex items-center px-4 text-left',
+                      'w-full relative flex items-center px-3 text-left',
                       'text-[--fg] hover:bg-white/8 focus:bg-white/8',
                       'focus:outline-none focus:[box-shadow:var(--ring)]'
                     )}
@@ -305,7 +347,7 @@ export function AccordionPill({
                     style={{
                       height: rowHeight,
                       // в списке мы всегда в открытом состоянии → сразу резервируем место под иконку
-                      paddingLeft: 16 + (hasAnyIcon ? (iconSize + iconGap) : 0),
+                      paddingLeft: 12 + (hasAnyIcon ? (iconSize + iconGap) : 0),
                     }}
                   >
                     {/* Иконка слева — только когда открыто и иконка есть */}
@@ -314,7 +356,7 @@ export function AccordionPill({
                       aria-hidden="true"
                       className="pointer-events-none absolute top-1/2 -translate-y-1/2"
                       style={{
-                        left: 16,                           // тот же «px-4»
+                        left: 12,                           // тот же «px-4»
                         width: iconSize,
                         height: iconSize,
                         display: 'inline-flex',
