@@ -70,6 +70,8 @@
   /* AccordionPill: тонкая кромка стекла (hairline) */
   --acc-pill-glass-border: rgba(255,255,255,0.14);
 
+  --hairline: 0.5px;
+
 
   /* Радиус/тени */
   --radius:   1rem; /* ~= rounded-2xl */

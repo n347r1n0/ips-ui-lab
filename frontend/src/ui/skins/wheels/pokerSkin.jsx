@@ -99,6 +99,16 @@ export const pokerSkin = {
         insetGlow: 0.12,
         glyph: 'inherit',
         activeGlyphColor: 'var(--gold, #D4AF37)',
+
+        // ── новая «капсула» из золотого стекла
+        capEnabled: true,
+        capTint: 'var(--gold, #D4AF37)',
+        capDiameterPx: null,     // если null — возьмём из chipSize * 1.55
+        capFillAlpha: 0.22,      // плотность «стекла»
+        capHighlightAlpha: 0.14, // внутренний блик
+        capHighlightBias: 0.46,  // 0..1 — смещение блика к верху
+        capBorderAlpha: 0.28,    // тонкий контур (hairline)
+        capGlowAlpha: 0.18,      // внешнее мягкое свечение капсулы
       },
     } = props;
     // ╰────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -381,21 +391,81 @@ export const pokerSkin = {
 
   // ─────────────────────────────────────────────────────────
   // ДЕКОР АКТИВНОЙ ИКОНКИ
-  decorateIcon(node, { isActive, skinProps }) {
+  decorateIcon(node, { isActive, geometry, skinProps }) {
     const a = skinProps?.activeIcon || {};
     const {
+
+      // NEW: сплошная подложка под иконкой
+      fillEnabled = true,
+      fillAlpha = 0.02,            // 0..1 — непрозрачность «стекла»
+      fillRadiusPx = 14,           // радиус подложки
+      // NEW: тонкий контур поверх подложки
+      strokeEnabled = true,
+      strokeAlpha = 0.03,
+      strokeWidthPx = 0.5,
+      // Halo-кольцо (мягкое внешнее сияние)
       ringEnabled = true,
-      ringAlpha = 0.18,
-      ringRadiusPx = 20,
-      ringSoftPx = 10,
+      ringAlpha = 0.02,
+      ringRadiusPx = 16,
+      ringSoftPx = 1,
+      // Текущий масштаб активной иконки
       scale = 1.2,
-      glow = 0.30,
-      insetGlow = 0.12,
+      // Свести центральный glow, чтобы не «выжигал» глиф
+      glow = 0.1,
+      insetGlow =0.1,
+      // Цвет глифа
       glyph = 'inherit',
       activeGlyphColor = 'var(--gold, #D4AF37)',
+
+
+      // капсула
+      capEnabled = true,
+      capTint = 'var(--gold, #D4AF37)',
+      capDiameterPx = null,
+      capFillAlpha = .2,
+      capHighlightAlpha = 0.3,
+      capHighlightBias = .12,
+      capBorderAlpha = 0.04,
+      capGlowAlpha = 0.04,
     } = a;
 
     if (!isActive) return node;
+
+    const gold = 'var(--gold, #D4AF37)';
+    const fillDisk = fillEnabled ? (
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden
+      >
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{
+            width: fillRadiusPx * 2,
+            height: fillRadiusPx * 2,
+            // Плотная «стеклянная» заливка без яркого хотспота
+            background: `
+              radial-gradient(
+                circle at 50% 45%,
+                color-mix(in oklab, ${gold} 86%, black 14%) 0%,
+                color-mix(in oklab, ${gold} 78%, black 22%) 100%
+              )`,
+            opacity: fillAlpha,
+          }}
+        />
+        {strokeEnabled && (
+          <div
+            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{
+              width: fillRadiusPx * 2,
+              height: fillRadiusPx * 2,
+              boxShadow: `inset 0 0 0 ${strokeWidthPx}px rgba(212,175,55,${strokeAlpha})`,
+            }}
+          />
+        )}
+      </div>
+    ) : null;
+
+
 
     const coloredNode =
       glyph === 'gold' || glyph === 'custom'
@@ -424,6 +494,44 @@ export const pokerSkin = {
       </div>
     ) : null;
 
+
+    // ── КРУГЛАЯ КАПСУЛА ИЗ «ЗОЛОТОГО СТЕКЛА»
+    // диаметр: из пропсов или отталкиваемся от геометрии слота (chipSize * 1.55)
+    const slot = Math.max(12, geometry?.chipSize ?? 25);
+    const capD = Math.round(
+      (typeof capDiameterPx === 'number' && capDiameterPx > 0)
+        ? capDiameterPx
+        : slot * 1.55
+    );
+
+    const capLayer = capEnabled ? (
+      <div
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
+        style={{
+          width: capD,
+          height: capD,
+          // два радиальных: базовая «золотая» глубина + верхний блик
+          background: `
+            radial-gradient(65% 65% at 50% ${Math.round(capHighlightBias * 100)}%,
+              rgba(255,255,255,${capHighlightAlpha}) 0%,
+              rgba(255,255,255,0) 60%),
+            radial-gradient(circle at 50% 50%,
+              color-mix(in oklab, ${capTint} ${Math.round(capFillAlpha * 100)}%, transparent) 0%,
+              color-mix(in oklab, ${capTint} 0%, transparent) 100%)
+          `,
+          // тонкий контур-хейрлайн + мягкое внешнее «стеклянное» сияние
+          boxShadow: `
+            0 0 0 var(--hairline, 0.5px) rgba(255,255,255,${capBorderAlpha}),
+            0 0 14px rgba(212,175,55,${capGlowAlpha})
+          `,
+          // защита от смешивания с низлежащими слонами узора
+          mixBlendMode: 'normal',
+        }}
+        aria-hidden
+      />
+    ) : null;
+
+
     return (
       <div
         className="relative rounded-full"
@@ -436,7 +544,9 @@ export const pokerSkin = {
           transition: 'transform 160ms ease, box-shadow 160ms ease',
         }}
       >
-        {ring}
+        {fillDisk}
+        {ring /* внешнее «кольцо»-ореол */}
+        {capLayer /* новая стеклянная капсула */}
         {coloredNode}
       </div>
     );

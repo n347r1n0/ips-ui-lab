@@ -694,6 +694,7 @@ export function FloatingChipWheel({
   const geometry = {
     size,
     radius,
+    chipSize, // ← пробросим в скин, чтобы капсула знала диаметр слота
     center,
     stepDeg: step,
     stepF: stepF.current,
@@ -878,9 +879,6 @@ export function FloatingChipWheel({
                       aria-haspopup="menu"
                       aria-controls={menuId}
                     >
-                      <span className="w-4 h-4 grid place-items-center transition-all duration-150" aria-hidden="true">
-                        {renderIcon(clean[currentIndex])}
-                      </span>
                       <span className="truncate">{clean[currentIndex]?.label}</span>
                     </button>
                   ) : (
