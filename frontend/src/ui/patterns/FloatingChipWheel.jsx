@@ -58,7 +58,7 @@ export function FloatingChipWheel({
   // ───────────────────────────────────────────────────────────────
   // 🔘 КЛИКАБЕЛЬНАЯ ПОДПИСЬ
   enableLabelMenu = true,   // включить меню выбора секций по клику на лейбл
-  menuMaxHeight = '38vh',   // максимальная высота меню 
+  menuMaxHeight = '38vh',   // максимальная высота меню
   onMenuOpen,               // () => void — колбек при открытии меню
   onMenuClose,              // () => void — колбек при закрытии меню
 
@@ -177,9 +177,6 @@ export function FloatingChipWheel({
   const [pillClosedMaxPx, setPillClosedMaxPx] = useState(null);
 
 
-  // ── ширина закрытой пилюли (максимум по всем лейблам) для правильного позиционирования
-  const measurePillRef = useRef(null);
-  const [closedMaxPx, setClosedMaxPx] = useState(0);
 
 
   // высота пилюли — чтобы список «прилипал» точно к ней
@@ -192,37 +189,6 @@ export function FloatingChipWheel({
   }, [isMenuOpen, labelMenuVariant, labelClassName, labelOffset, currentIndex]);
 
 
-
-  // Пересчёт максимальной закрытой ширины пилюли (паддинги = токены)
-  const recomputeClosedMax = () => {
-    const box = measurePillRef.current;
-    if (!box) return;
-    let maxW = 0;
-    box.querySelectorAll('[data-measure="pill-label"]').forEach((n) => {
-      const w = Math.ceil(n.scrollWidth || 0); // scrollWidth учитывает горизонтальные паддинги
-      if (w > maxW) maxW = w;
-    });
-    setClosedMaxPx(maxW + 1); // +1px против сабпикселей
-  };
-
-  useLayoutEffect(() => { recomputeClosedMax(); }, [items]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (document.fonts && typeof document.fonts.ready?.then === 'function') {
-      document.fonts.ready.then(() => { if (!cancelled) recomputeClosedMax(); });
-    }
-    const onFontsDone = () => recomputeClosedMax();
-    if (document.fonts && typeof document.fonts.addEventListener === 'function') {
-      document.fonts.addEventListener('loadingdone', onFontsDone);
-    }
-    return () => {
-      cancelled = true;
-      if (document.fonts && typeof document.fonts.removeEventListener === 'function') {
-        document.fonts.removeEventListener('loadingdone', onFontsDone);
-      }
-    };
-  }, [items]);
 
 
 
@@ -459,7 +425,7 @@ export function FloatingChipWheel({
   const handleMenuItemClick = (targetIdx) => {
     if (!isMenuOpen || animating) return;
     closeMenu();
-    
+
     // Найти ближайший логический шаг для данного индекса
     const s = stepF.current;
     let best = targetIdx;
@@ -469,7 +435,7 @@ export function FloatingChipWheel({
       const dist = Math.abs(cand - s);
       if (dist < bestDist) { bestDist = dist; best = cand; }
     }
-    
+
     snapTo(best);
   };
 
@@ -658,13 +624,13 @@ export function FloatingChipWheel({
   // Автоскролл к активному элементу при открытии меню
   useEffect(() => {
     if (!isMenuOpen || !menuRef.current) return;
-    
+
     const activeElement = menuRef.current.querySelector('[data-active="true"]');
     if (activeElement) {
-      activeElement.scrollIntoView({ 
-        block: 'nearest', 
-        inline: 'nearest', 
-        behavior: 'smooth' 
+      activeElement.scrollIntoView({
+        block: 'nearest',
+        inline: 'nearest',
+        behavior: 'smooth'
       });
     }
   }, [isMenuOpen, currentIndex]);
@@ -839,20 +805,6 @@ export function FloatingChipWheel({
         )}
         style={{ width: size, height: size, overflow: 'visible' }}
       >
-        {/* Offscreen-мерилка для max ширины закрытой пилюли */}
-        <div aria-hidden className="absolute opacity-0 pointer-events-none -z-10 top-0 left-0">
-          <div ref={measurePillRef} className="whitespace-nowrap">
-            {clean.map((it) => (
-              <div
-                key={`m-pill-${it.id}`}
-                data-measure="pill-label"
-                className="inline-block px-[var(--acc-pill-px)] py-[var(--acc-pill-py)]"
-              >
-                {it.label}
-              </div>
-            ))}
-          </div>
-        </div>
 
         {/* skin: фон/обод/клинья до иконок */}
         {skinImpl.beforeIcons?.(geometry, skinProps)}
